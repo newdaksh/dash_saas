@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
 import { UserPlus, Search, Mail, Shield, User as UserIcon, Clock, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { InviteUserModal } from '../components/InviteUserModal';
+import { UserPanel } from '../components/UserPanel';
 
 export const UserList: React.FC = () => {
   const { users } = useApp();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const activeUsers = users.filter(u => u.status === 'Active' && 
@@ -17,6 +19,8 @@ export const UserList: React.FC = () => {
   const invitedUsers = users.filter(u => u.status === 'Invited' &&
     (u.email.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const selectedUser = useMemo(() => users.find(u => u.id === selectedUserId) || null, [users, selectedUserId]);
 
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
@@ -72,7 +76,11 @@ export const UserList: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {activeUsers.map(user => (
-                    <div key={user.id} className="bg-white/80 backdrop-blur-md border border-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
+                    <div 
+                        key={user.id} 
+                        onClick={() => setSelectedUserId(user.id)}
+                        className="bg-white/80 backdrop-blur-md border border-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group cursor-pointer hover:border-blue-200"
+                    >
                         <div className="flex items-start justify-between mb-4">
                             <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-100 to-blue-200 p-[3px] ring-2 ring-white shadow-md">
                                 {user.avatarUrl ? (
@@ -90,7 +98,7 @@ export const UserList: React.FC = () => {
                             </span>
                         </div>
                         
-                        <h3 className="text-lg font-bold text-slate-800">{user.name}</h3>
+                        <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{user.name}</h3>
                         <div className="flex items-center gap-2 text-slate-500 text-sm mt-1 mb-4">
                             <Mail size={14} />
                             <span className="truncate">{user.email}</span>
@@ -116,7 +124,11 @@ export const UserList: React.FC = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {invitedUsers.map(user => (
-                        <div key={user.id} className="bg-slate-50/80 border border-slate-200 border-dashed rounded-2xl p-6 relative overflow-hidden">
+                        <div 
+                            key={user.id} 
+                            onClick={() => setSelectedUserId(user.id)}
+                            className="bg-slate-50/80 border border-slate-200 border-dashed rounded-2xl p-6 relative overflow-hidden cursor-pointer hover:bg-white hover:border-slate-300 transition-all"
+                        >
                             <div className="absolute top-0 right-0 p-3 opacity-10">
                                 <Mail size={64} />
                             </div>
@@ -147,6 +159,12 @@ export const UserList: React.FC = () => {
        </div>
 
        <InviteUserModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
+       
+       <UserPanel 
+         user={selectedUser} 
+         isOpen={!!selectedUser} 
+         onClose={() => setSelectedUserId(null)} 
+       />
     </div>
   );
 };

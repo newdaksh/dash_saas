@@ -168,6 +168,8 @@ interface AppContextType {
   updateUser: (data: Partial<User>) => void;
   addTeamMember: (name: string) => void;
   inviteUser: (email: string) => void;
+  updateTeamMember: (user: User) => void;
+  deleteTeamMember: (userId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -194,7 +196,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateUser = (data: Partial<User>) => {
     if (user) {
-      setUser({ ...user, ...data });
+      const updatedUser = { ...user, ...data };
+      setUser(updatedUser);
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     }
   };
 
@@ -223,6 +227,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setUsers(prev => [...prev, newUser]);
   }
+
+  const updateTeamMember = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    if (user && user.id === updatedUser.id) {
+        setUser(updatedUser);
+    }
+  };
+
+  const deleteTeamMember = (userId: string) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+  };
 
   const addTask = (task: Task) => {
     setTasks(prev => [task, ...prev]);
@@ -267,7 +282,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       deleteProject,
       updateUser,
       addTeamMember,
-      inviteUser
+      inviteUser,
+      updateTeamMember,
+      deleteTeamMember
     }}>
       {children}
     </AppContext.Provider>
