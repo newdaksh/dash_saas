@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight } from 'lucide-react';
+import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight, Users } from 'lucide-react';
 import { useApp } from '../context';
 
 export const Sidebar: React.FC = () => {
@@ -68,6 +68,10 @@ export const Sidebar: React.FC = () => {
           <NavLink to="/tasks" className={navClass}>
             <CheckSquare size={20} className="stroke-[1.5]" />
             <span className="text-sm font-medium tracking-wide">My Tasks</span>
+          </NavLink>
+          <NavLink to="/users" className={navClass}>
+            <Users size={20} className="stroke-[1.5]" />
+            <span className="text-sm font-medium tracking-wide">Users</span>
           </NavLink>
         </nav>
       </div>

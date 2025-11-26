@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { TaskList } from './pages/TaskList';
 import { ProjectList } from './pages/ProjectList';
+import { UserList } from './pages/UserList';
 import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
 import { Auth } from './pages/Auth';
@@ -56,6 +57,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ProjectList />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/users" 
+        element={
+          <ProtectedRoute>
+            <UserList />
           </ProtectedRoute>
         } 
       />

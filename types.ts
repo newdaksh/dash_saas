@@ -18,6 +18,8 @@ export interface User {
   email: string;
   companyName: string;
   avatarUrl?: string;
+  status: 'Active' | 'Invited';
+  role: 'Admin' | 'Member' | 'Viewer';
 }
 
 export interface Comment {

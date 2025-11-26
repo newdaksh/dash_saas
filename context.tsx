@@ -8,7 +8,9 @@ const MOCK_USER: User = {
   name: 'Rahul Sain',
   email: 'rahul@example.com',
   companyName: 'Acme Corp',
-  avatarUrl: 'https://picsum.photos/id/64/200'
+  avatarUrl: 'https://picsum.photos/id/64/200',
+  status: 'Active',
+  role: 'Admin'
 };
 
 // Additional Mock Users for the Team
@@ -19,21 +21,36 @@ const MOCK_TEAM: User[] = [
     name: 'Mike Ross',
     email: 'mike@example.com',
     companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/91/200'
+    avatarUrl: 'https://picsum.photos/id/91/200',
+    status: 'Active',
+    role: 'Member'
   },
   {
     id: 'u3',
     name: 'Sarah Jen',
     email: 'sarah@example.com',
     companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/177/200'
+    avatarUrl: 'https://picsum.photos/id/177/200',
+    status: 'Active',
+    role: 'Member'
   },
   {
     id: 'u4',
     name: 'David Kim',
     email: 'david@example.com',
     companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/338/200'
+    avatarUrl: 'https://picsum.photos/id/338/200',
+    status: 'Active',
+    role: 'Viewer'
+  },
+  {
+    id: 'u5',
+    name: 'Emily Chen',
+    email: 'emily.chen@example.com',
+    companyName: 'Acme Corp',
+    avatarUrl: undefined,
+    status: 'Invited',
+    role: 'Member'
   }
 ];
 
@@ -150,6 +167,7 @@ interface AppContextType {
   deleteProject: (projectId: string) => void;
   updateUser: (data: Partial<User>) => void;
   addTeamMember: (name: string) => void;
+  inviteUser: (email: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -186,7 +204,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: name,
         email: `${name.toLowerCase().replace(' ', '.')}@acme.com`,
         companyName: 'Acme Corp',
-        avatarUrl: undefined
+        avatarUrl: undefined,
+        status: 'Active',
+        role: 'Member'
+    };
+    setUsers(prev => [...prev, newUser]);
+  }
+
+  const inviteUser = (email: string) => {
+    const newUser: User = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: email.split('@')[0], // Temporary name derived from email
+      email: email,
+      companyName: 'Acme Corp',
+      avatarUrl: undefined,
+      status: 'Invited',
+      role: 'Member'
     };
     setUsers(prev => [...prev, newUser]);
   }
@@ -233,7 +266,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateProject,
       deleteProject,
       updateUser,
-      addTeamMember
+      addTeamMember,
+      inviteUser
     }}>
       {children}
     </AppContext.Provider>
