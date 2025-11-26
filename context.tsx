@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Task, Project, Status, Priority } from './types';
 
@@ -11,9 +12,36 @@ const MOCK_USER: User = {
 };
 
 const MOCK_PROJECTS: Project[] = [
-  { id: 'p1', name: 'Website Redesign', description: 'Overhaul the corporate site', status: 'Active', dueDate: new Date('2024-12-31'), ownerId: 'u1' },
-  { id: 'p2', name: 'Mobile App Launch', description: 'iOS and Android release', status: 'Active', dueDate: new Date('2024-10-15'), ownerId: 'u1' },
-  { id: 'p3', name: 'Q4 Marketing', description: 'Holiday campaigns', status: 'On Hold', dueDate: new Date('2024-11-20'), ownerId: 'u2' },
+  { 
+    id: 'p1', 
+    name: 'Website Redesign', 
+    description: 'Overhaul the corporate site', 
+    status: 'Active', 
+    dueDate: new Date('2024-12-31'), 
+    ownerId: 'u1',
+    ownerName: 'Rahul Sain',
+    clientName: 'TechFlow Solutions'
+  },
+  { 
+    id: 'p2', 
+    name: 'Mobile App Launch', 
+    description: 'iOS and Android release', 
+    status: 'Active', 
+    dueDate: new Date('2024-10-15'), 
+    ownerId: 'u1',
+    ownerName: 'Rahul Sain',
+    clientName: 'Nexus Retail'
+  },
+  { 
+    id: 'p3', 
+    name: 'Q4 Marketing', 
+    description: 'Holiday campaigns', 
+    status: 'On Hold', 
+    dueDate: new Date('2024-11-20'), 
+    ownerId: 'u2',
+    ownerName: 'Mike Ross',
+    clientName: 'Internal'
+  },
 ];
 
 const MOCK_TASKS: Task[] = [

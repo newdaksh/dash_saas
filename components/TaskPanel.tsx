@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Task, Status, Priority, Comment } from '../types';
-import { X, Calendar, User, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown } from 'lucide-react';
+import { X, Calendar, User, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown, Building2, Crown } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 
@@ -15,6 +16,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
   const [commentText, setCommentText] = useState('');
 
   if (!task || !user) return null;
+
+  const currentProject = projects.find(p => p.id === task.projectId);
 
   const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== Status.DONE;
   const isAssignedToMe = user.id === task.assigneeId;
@@ -129,7 +132,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
             
-            {/* Assignee (Read-only for now but styled) */}
+            {/* Assignee */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
               <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
@@ -215,6 +218,37 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                  </div>
               </div>
             </div>
+
+            {/* Dynamic Project Details Fields */}
+            {currentProject && (
+              <>
+                 {/* Client Name */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</span>
+                  <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-xs">
+                      <Building2 size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-700">{currentProject.clientName}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project Owner */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Project Owner</span>
+                  <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-xs">
+                      <Crown size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-700">{currentProject.ownerName}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
           </div>
 

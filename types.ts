@@ -1,3 +1,4 @@
+
 export enum Status {
   TODO = 'To Do',
   IN_PROGRESS = 'In Progress',
@@ -50,6 +51,8 @@ export interface Project {
   status: 'Active' | 'Archived' | 'On Hold';
   dueDate: Date;
   ownerId: string;
+  ownerName: string;
+  clientName: string;
 }
 
 export type ViewFilter = 'assigned_to_me' | 'assigned_by_me';
