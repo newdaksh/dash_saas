@@ -6,6 +6,8 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { TaskList } from './pages/TaskList';
 import { ProjectList } from './pages/ProjectList';
+import { Profile } from './pages/Profile';
+import { Settings } from './pages/Settings';
 import { Auth } from './pages/Auth';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,6 +56,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ProjectList />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/settings" 
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         } 
       />

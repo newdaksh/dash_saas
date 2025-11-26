@@ -119,6 +119,7 @@ interface AppContextType {
   updateTask: (task: Task) => void;
   addProject: (project: Project) => void;
   updateProject: (project: Project) => void;
+  updateUser: (data: Partial<User>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -140,6 +141,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const logout = () => {
     setUser(null);
+  };
+
+  const updateUser = (data: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...data });
+    }
   };
 
   const addTask = (task: Task) => {
@@ -169,7 +176,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addTask, 
       updateTask,
       addProject,
-      updateProject
+      updateProject,
+      updateUser
     }}>
       {children}
     </AppContext.Provider>
