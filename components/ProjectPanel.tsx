@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Project, Status, Priority } from '../types';
-import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, Filter } from 'lucide-react';
-import { Button } from './Button';
+import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle } from 'lucide-react';
+import { TaskPanel } from './TaskPanel';
 import { useApp } from '../context';
 
 interface ProjectPanelProps {
@@ -14,6 +14,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
   const { user, updateProject, tasks } = useApp();
   const [taskStatusFilter, setTaskStatusFilter] = useState<string>('All');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>('All');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Filter tasks belonging to this project
   const projectTasks = useMemo(() => {
@@ -30,6 +31,8 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
 
     return filtered;
   }, [tasks, project, taskStatusFilter, taskPriorityFilter]);
+
+  const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
   if (!project || !user) return null;
 
@@ -209,12 +212,16 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                  </div>
                ) : (
                  projectTasks.map(task => (
-                   <div key={task.id} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-purple-200 group cursor-default">
+                   <div 
+                      key={task.id} 
+                      onClick={() => setSelectedTaskId(task.id)}
+                      className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-purple-200 group cursor-pointer"
+                   >
                       <div className={task.status === Status.DONE ? "text-green-500" : "text-slate-300"}>
                         {task.status === Status.DONE ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                         <p className={`text-sm font-semibold truncate ${task.status === Status.DONE ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{task.title}</p>
+                         <p className={`text-sm font-semibold truncate group-hover:text-purple-700 transition-colors ${task.status === Status.DONE ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{task.title}</p>
                          <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-gray-400 flex items-center gap-1">
                                <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">{task.assigneeName.charAt(0)}</div>
@@ -235,8 +242,14 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                )}
             </div>
           </div>
-
         </div>
+
+        {/* Task Details Layer (Stacked on top) */}
+        <TaskPanel 
+            task={selectedTask}
+            isOpen={!!selectedTask}
+            onClose={() => setSelectedTaskId(null)}
+        />
       </div>
     </>
   );
