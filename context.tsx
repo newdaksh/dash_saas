@@ -8,8 +8,34 @@ const MOCK_USER: User = {
   name: 'Rahul Sain',
   email: 'rahul@example.com',
   companyName: 'Acme Corp',
-  avatarUrl: 'https://picsum.photos/200'
+  avatarUrl: 'https://picsum.photos/id/64/200'
 };
+
+// Additional Mock Users for the Team
+const MOCK_TEAM: User[] = [
+  MOCK_USER,
+  {
+    id: 'u2',
+    name: 'Mike Ross',
+    email: 'mike@example.com',
+    companyName: 'Acme Corp',
+    avatarUrl: 'https://picsum.photos/id/91/200'
+  },
+  {
+    id: 'u3',
+    name: 'Sarah Jen',
+    email: 'sarah@example.com',
+    companyName: 'Acme Corp',
+    avatarUrl: 'https://picsum.photos/id/177/200'
+  },
+  {
+    id: 'u4',
+    name: 'David Kim',
+    email: 'david@example.com',
+    companyName: 'Acme Corp',
+    avatarUrl: 'https://picsum.photos/id/338/200'
+  }
+];
 
 const MOCK_PROJECTS: Project[] = [
   { 
@@ -54,7 +80,7 @@ const MOCK_TASKS: Task[] = [
     dueDate: new Date('2024-06-20'),
     assigneeId: 'u1',
     assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/200',
+    assigneeAvatar: 'https://picsum.photos/id/64/200',
     creatorId: 'u2',
     projectId: 'p1',
     projectName: 'Website Redesign',
@@ -71,7 +97,7 @@ const MOCK_TASKS: Task[] = [
     dueDate: new Date('2024-06-18'),
     assigneeId: 'u1',
     assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/200',
+    assigneeAvatar: 'https://picsum.photos/id/64/200',
     creatorId: 'u1',
     projectId: 'p1',
     projectName: 'Website Redesign',
@@ -86,7 +112,7 @@ const MOCK_TASKS: Task[] = [
     dueDate: new Date('2024-07-01'),
     assigneeId: 'u2',
     assigneeName: 'Mike Ross',
-    assigneeAvatar: 'https://picsum.photos/201',
+    assigneeAvatar: 'https://picsum.photos/id/91/200',
     creatorId: 'u1',
     projectId: 'p2',
     projectName: 'Mobile App Launch',
@@ -101,7 +127,7 @@ const MOCK_TASKS: Task[] = [
     dueDate: null,
     assigneeId: 'u1',
     assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/200',
+    assigneeAvatar: 'https://picsum.photos/id/64/200',
     creatorId: 'u1',
     projectId: undefined,
     comments: []
@@ -110,6 +136,7 @@ const MOCK_TASKS: Task[] = [
 
 interface AppContextType {
   user: User | null;
+  users: User[];
   tasks: Task[];
   projects: Project[];
   login: (name: string, email: string) => void;
@@ -117,15 +144,19 @@ interface AppContextType {
   logout: () => void;
   addTask: (task: Task) => void;
   updateTask: (task: Task) => void;
+  deleteTask: (taskId: string) => void;
   addProject: (project: Project) => void;
   updateProject: (project: Project) => void;
+  deleteProject: (projectId: string) => void;
   updateUser: (data: Partial<User>) => void;
+  addTeamMember: (name: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>(MOCK_TEAM);
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
 
@@ -149,6 +180,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const addTeamMember = (name: string) => {
+    const newUser: User = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: name,
+        email: `${name.toLowerCase().replace(' ', '.')}@acme.com`,
+        companyName: 'Acme Corp',
+        avatarUrl: undefined
+    };
+    setUsers(prev => [...prev, newUser]);
+  }
+
   const addTask = (task: Task) => {
     setTasks(prev => [task, ...prev]);
   };
@@ -156,6 +198,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateTask = (updatedTask: Task) => {
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
   };
+
+  const deleteTask = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  }
 
   const addProject = (project: Project) => {
     setProjects(prev => [project, ...prev]);
@@ -165,9 +211,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
   };
 
+  const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    // Optional: Delete associated tasks
+    setTasks(prev => prev.filter(t => t.projectId !== projectId));
+  }
+
   return (
     <AppContext.Provider value={{ 
       user, 
+      users,
       tasks, 
       projects, 
       login, 
@@ -175,9 +228,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       logout, 
       addTask, 
       updateTask,
+      deleteTask,
       addProject,
       updateProject,
-      updateUser
+      deleteProject,
+      updateUser,
+      addTeamMember
     }}>
       {children}
     </AppContext.Provider>

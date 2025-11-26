@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { Task, Status, Priority, Comment } from '../types';
-import { X, Calendar, User, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown, Building2, Crown } from 'lucide-react';
+import { Task, Status, Priority, Comment, User } from '../types';
+import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown, Building2, Crown, Trash2, UserPlus, AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 
@@ -11,8 +12,11 @@ interface TaskPanelProps {
 }
 
 export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) => {
-  const { user, updateTask, projects } = useApp();
+  const { user, updateTask, deleteTask, projects, users, addTeamMember } = useApp();
   const [commentText, setCommentText] = useState('');
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   if (!task || !user) return null;
 
@@ -24,6 +28,12 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
   const handleStatusChange = () => {
     const nextStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
     updateTask({ ...task, status: nextStatus });
+  };
+
+  const handleDelete = () => {
+    deleteTask(task.id);
+    setIsDeleteConfirmOpen(false);
+    onClose();
   };
 
   const handleAddComment = () => {
@@ -49,6 +59,34 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     });
   };
 
+  const handleAssigneeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+     const userId = e.target.value;
+     if (userId === 'add_new') {
+        setIsAddingMember(true);
+        return;
+     }
+     const selectedUser = users.find(u => u.id === userId);
+     if (selectedUser) {
+        updateTask({
+            ...task,
+            assigneeId: selectedUser.id,
+            assigneeName: selectedUser.name,
+            assigneeAvatar: selectedUser.avatarUrl
+        });
+     }
+  };
+
+  const handleAddNewMember = (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newMemberName.trim()) {
+          addTeamMember(newMemberName);
+          setNewMemberName('');
+          setIsAddingMember(false);
+          // Note: The select will update automatically via context, 
+          // but we won't auto-select the new user here to keep logic simple
+      }
+  }
+
   // Safe date conversion for input value (YYYY-MM-DD)
   const dateInputValue = task.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
 
@@ -66,6 +104,23 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
       <div 
         className={`fixed inset-y-0 right-0 z-[70] w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
+        {/* Delete Confirmation Overlay */}
+        {isDeleteConfirmOpen && (
+            <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in">
+                <div className="max-w-sm text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">Delete this Task?</h3>
+                    <p className="text-slate-500 mb-6">Are you sure you want to delete <span className="font-semibold text-slate-800">"{task.title}"</span>? This action cannot be undone.</p>
+                    <div className="flex gap-3 justify-center">
+                        <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={handleDelete}>Delete Task</Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <Button 
@@ -77,9 +132,14 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             {task.status === Status.DONE ? 'Completed' : 'Mark Complete'}
           </Button>
           <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-              <Paperclip size={20} />
+            <button 
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
+                title="Delete Task"
+            >
+              <Trash2 size={20} />
             </button>
+            <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button 
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
@@ -112,8 +172,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                 onChange={handleProjectChange}
                 className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
               >
-                <option value="">No Project</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="" className="bg-white text-slate-700">No Project</option>
+                {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
             </div>
@@ -134,23 +194,50 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             {/* Assignee */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-              <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
-                <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                   {task.assigneeAvatar ? (
-                      <img src={task.assigneeAvatar} alt="" className="w-full h-full rounded-full object-cover" />
-                   ) : (
-                      task.assigneeName.charAt(0)
-                   )}
+              {isAddingMember ? (
+                  <form onSubmit={handleAddNewMember} className="flex gap-2">
+                      <input 
+                        autoFocus
+                        value={newMemberName} 
+                        onChange={e => setNewMemberName(e.target.value)}
+                        placeholder="New member name..." 
+                        className="text-xs border rounded px-2 py-1 w-full focus:outline-brand-500"
+                      />
+                      <button type="button" onClick={() => setIsAddingMember(false)} className="text-gray-400 hover:text-gray-600"><X size={14}/></button>
+                      <button type="submit" className="text-brand-600 hover:text-brand-800"><CheckCircle2 size={14}/></button>
+                  </form>
+              ) : (
+                <div className="relative group">
+                    <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
+                        {task.assigneeAvatar ? (
+                            <img src={task.assigneeAvatar} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                            task.assigneeName.charAt(0)
+                        )}
+                        </div>
+                        <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                            {task.assigneeName}
+                            <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
+                        </span>
+                        </div>
+                    </div>
+                    {/* Invisible select overlay for interaction */}
+                    <select
+                        value={task.assigneeId}
+                        onChange={handleAssigneeChange}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                    >
+                        <optgroup label="Team Members" className="bg-white text-slate-900">
+                            {users.map(u => (
+                                <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
+                            ))}
+                        </optgroup>
+                        <option value="add_new" className="bg-white text-brand-600 font-medium">+ Add New Member</option>
+                    </select>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    {task.assigneeName}
-                    {isAssignedToMe && (
-                      <span className="bg-brand-100 text-brand-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">You</span>
-                    )}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Due Date Input */}
@@ -163,11 +250,13 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                  }`}>
                    <Calendar size={16} />
                  </div>
+                 {/* Native date picker with styling */}
                  <input 
                    type="date"
                    value={dateInputValue}
                    onChange={(e) => updateTask({ ...task, dueDate: e.target.value ? new Date(e.target.value) : null })}
                    className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
+                   onClick={(e) => e.currentTarget.showPicker()} // Force open picker
                  />
               </div>
             </div>
@@ -187,7 +276,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                     }`}
                   >
                     {Object.values(Priority).map(p => (
-                      <option key={p} value={p}>{p}</option>
+                      <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
                     ))}
                   </select>
                   <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
@@ -210,7 +299,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
                     >
                       {Object.values(Status).map(s => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
                       ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -252,7 +341,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           </div>
 
           {/* Description Textarea */}
-          <div className="mb-8">
+          <div className="mb-8 relative">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
              <textarea
                value={task.description}

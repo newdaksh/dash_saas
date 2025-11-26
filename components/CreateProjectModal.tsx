@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Calendar, Layers, Building2 } from 'lucide-react';
 import { useApp } from '../context';
@@ -111,9 +112,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
                  </label>
                  <input
                    type="date"
-                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-100 bg-white transition-colors text-slate-600"
+                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-100 bg-white transition-colors text-slate-600 cursor-pointer"
                    value={dueDate}
                    onChange={e => setDueDate(e.target.value)}
+                   onClick={(e) => e.currentTarget.showPicker()}
                    required
                  />
                </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Calendar, Flag, Layers, AlignLeft } from 'lucide-react';
 import { useApp } from '../context';
@@ -116,7 +117,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                      onChange={e => setPriority(e.target.value as Priority)}
                    >
                      {Object.values(Priority).map(p => (
-                       <option key={p} value={p}>{p}</option>
+                       <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
                      ))}
                    </select>
                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -132,9 +133,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                  </label>
                  <input
                    type="date"
-                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-white transition-colors text-slate-600"
+                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-white transition-colors text-slate-600 cursor-pointer"
                    value={dueDate}
                    onChange={e => setDueDate(e.target.value)}
+                   onClick={(e) => e.currentTarget.showPicker()}
                  />
                </div>
              </div>
@@ -150,9 +152,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                    value={projectId}
                    onChange={e => setProjectId(e.target.value)}
                  >
-                   <option value="">No Project (Personal Task)</option>
+                   <option value="" className="bg-white text-slate-900">No Project (Personal Task)</option>
                    {projects.map(p => (
-                     <option key={p.id} value={p.id}>{p.name}</option>
+                     <option key={p.id} value={p.id} className="bg-white text-slate-900">{p.name}</option>
                    ))}
                  </select>
                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

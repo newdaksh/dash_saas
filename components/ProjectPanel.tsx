@@ -1,8 +1,10 @@
+
 import React, { useMemo, useState } from 'react';
 import { Project, Status, Priority } from '../types';
-import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle } from 'lucide-react';
+import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, Trash2, AlertTriangle } from 'lucide-react';
 import { TaskPanel } from './TaskPanel';
 import { useApp } from '../context';
+import { Button } from './Button';
 
 interface ProjectPanelProps {
   project: Project | null;
@@ -11,10 +13,11 @@ interface ProjectPanelProps {
 }
 
 export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onClose }) => {
-  const { user, updateProject, tasks } = useApp();
+  const { user, updateProject, deleteProject, tasks } = useApp();
   const [taskStatusFilter, setTaskStatusFilter] = useState<string>('All');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>('All');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   // Filter tasks belonging to this project
   const projectTasks = useMemo(() => {
@@ -38,6 +41,12 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
 
   const projectStatusOptions = ['Active', 'On Hold', 'Archived'];
 
+  const handleDelete = () => {
+    deleteProject(project.id);
+    setIsDeleteConfirmOpen(false);
+    onClose();
+  }
+
   // Safe date conversion
   const dateInputValue = project.dueDate ? new Date(project.dueDate.getTime() - (project.dueDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
 
@@ -55,6 +64,23 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
       <div 
         className={`fixed inset-y-0 right-0 z-50 w-full md:w-[700px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
+        {/* Delete Confirmation Overlay */}
+        {isDeleteConfirmOpen && (
+            <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in">
+                <div className="max-w-sm text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">Delete this Project?</h3>
+                    <p className="text-slate-500 mb-6">Are you sure you want to delete <span className="font-semibold text-slate-800">"{project.name}"</span>? This will also remove all associated tasks.</p>
+                    <div className="flex gap-3 justify-center">
+                        <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={handleDelete}>Delete Project</Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Header - Distinct Purple Gradient for Projects */}
         <div className="flex items-center justify-between p-6 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-white">
           <div className="flex items-center gap-3">
@@ -71,6 +97,14 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
              </div>
           </div>
           <div className="flex items-center gap-2">
+            <button 
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
+                title="Delete Project"
+            >
+              <Trash2 size={20} />
+            </button>
+            <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button 
               onClick={onClose}
               className="p-2 hover:bg-white hover:shadow-sm rounded-full text-gray-400 hover:text-gray-600 transition-all"
@@ -152,6 +186,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                    value={dateInputValue}
                    onChange={(e) => updateProject({ ...project, dueDate: e.target.value ? new Date(e.target.value) : new Date() })}
                    className="bg-white border border-gray-200 rounded-md pl-8 pr-2 py-1.5 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-sm font-medium text-gray-800 cursor-pointer w-full"
+                   onClick={(e) => e.currentTarget.showPicker()}
                  />
               </div>
             </div>
