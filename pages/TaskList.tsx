@@ -2,15 +2,21 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
-import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock } from 'lucide-react';
 import { Button } from '../components/Button';
 import { TaskPanel } from '../components/TaskPanel';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 
+type SortOption = 'default' | 'dueDate' | 'priority';
+type DateFilter = 'all' | 'today' | 'week' | 'overdue';
+
 export const TaskList: React.FC = () => {
-  const { user, tasks } = useApp();
+  const { user, tasks, projects } = useApp();
   const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('default');
   const [search, setSearch] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -25,16 +31,50 @@ export const TaskList: React.FC = () => {
     
     let result = tasks;
 
+    // 1. Initial Source Filter
     if (filter === 'assigned_to_me') {
       result = result.filter(t => t.assigneeId === user.id);
     } else {
       result = result.filter(t => t.creatorId === user.id);
     }
 
+    // 2. Status Filter
     if (statusFilter !== 'All') {
       result = result.filter(t => t.status === statusFilter);
     }
 
+    // 3. Project Filter
+    if (projectFilter !== 'all') {
+      result = result.filter(t => t.projectId === projectFilter);
+    }
+
+    // 4. Date Filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      result = result.filter(t => {
+        if (!t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        const taskDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+        if (dateFilter === 'overdue') {
+           // Overdue if date is before today and not done
+           return taskDate < today && t.status !== Status.DONE;
+        }
+        if (dateFilter === 'today') {
+           return taskDate.getTime() === today.getTime();
+        }
+        if (dateFilter === 'week') {
+           const nextWeek = new Date(today);
+           nextWeek.setDate(today.getDate() + 7);
+           return taskDate >= today && taskDate <= nextWeek;
+        }
+        return true;
+      });
+    }
+
+    // 5. Search Filter
     if (search) {
       const lowerSearch = search.toLowerCase();
       result = result.filter(t => 
@@ -44,8 +84,20 @@ export const TaskList: React.FC = () => {
       );
     }
 
+    // 6. Sorting
+    if (sortBy === 'dueDate') {
+      result = [...result].sort((a, b) => {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    } else if (sortBy === 'priority') {
+      const pWeight = { [Priority.HIGH]: 3, [Priority.MEDIUM]: 2, [Priority.LOW]: 1 };
+      result = [...result].sort((a, b) => pWeight[b.priority] - pWeight[a.priority]);
+    }
+
     return result;
-  }, [tasks, user, filter, statusFilter, search]);
+  }, [tasks, user, filter, statusFilter, dateFilter, projectFilter, sortBy, search]);
 
   const handleRowClick = (task: Task) => {
     setSelectedTaskId(task.id);
@@ -68,7 +120,7 @@ export const TaskList: React.FC = () => {
               My Tasks
             </h1>
             <p className="text-slate-600 font-medium mt-1">
-              {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} available
+              {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} found
             </p>
           </div>
           
@@ -84,9 +136,9 @@ export const TaskList: React.FC = () => {
 
         {/* Floating Controls Bar (Glass Capsule) */}
         <div className="sticky top-0 z-20 mx-1">
-          <div className="bg-white/60 backdrop-blur-xl p-2 rounded-2xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.05)] flex flex-col lg:flex-row gap-4 justify-between items-center animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="bg-white/60 backdrop-blur-xl p-2 rounded-2xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.05)] flex flex-col xl:flex-row gap-4 justify-between items-center animate-slide-up" style={{ animationDelay: '0.1s' }}>
             
-            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto p-1">
+            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto p-1 flex-wrap">
               {/* View Filter */}
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
@@ -95,7 +147,7 @@ export const TaskList: React.FC = () => {
                 <select 
                   value={filter}
                   onChange={(e) => setFilter(e.target.value as ViewFilter)}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-56 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="assigned_to_me">Assigned to me</option>
                   <option value="assigned_by_me">Assigned by me</option>
@@ -111,7 +163,7 @@ export const TaskList: React.FC = () => {
                 <select 
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as Status | 'All')}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="All">All Statuses</option>
                   {Object.values(Status).map(s => (
@@ -120,11 +172,64 @@ export const TaskList: React.FC = () => {
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
+
+               {/* Date Filter */}
+               <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Clock size={16} />
+                </div>
+                <select 
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">Any Date</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="today">Due Today</option>
+                  <option value="week">Due This Week</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Project Filter */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Layers size={16} />
+                </div>
+                <select 
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">All Projects</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="w-full lg:w-80 p-1">
-              <div className="relative group">
+            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto p-1">
+              {/* Sort By Dropdown */}
+              <div className="relative group w-full sm:w-40">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                   <ArrowUpDown size={16} />
+                </div>
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="default">Default</option>
+                  <option value="dueDate">Due Date</option>
+                  <option value="priority">Priority</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Search */}
+              <div className="relative group w-full sm:w-64">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none transition-colors text-slate-500 group-focus-within:text-brand-600">
                   <Search size={16} />
                 </div>
@@ -247,7 +352,7 @@ export const TaskList: React.FC = () => {
                 <Button 
                   variant="outline" 
                   className="bg-white hover:bg-slate-50"
-                  onClick={() => {setSearch(''); setStatusFilter('All');}}
+                  onClick={() => {setSearch(''); setStatusFilter('All'); setDateFilter('all'); setSortBy('default'); setProjectFilter('all');}}
                 >
                   Clear Filters
                 </Button>
