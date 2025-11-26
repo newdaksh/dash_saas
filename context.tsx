@@ -1,269 +1,300 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Task, Project, Status, Priority } from './types';
-
-// Mock Data Generation
-const MOCK_USER: User = {
-  id: 'u1',
-  name: 'Rahul Sain',
-  email: 'rahul@example.com',
-  companyName: 'Acme Corp',
-  avatarUrl: 'https://picsum.photos/id/64/200',
-  status: 'Active',
-  role: 'Admin'
-};
-
-// Additional Mock Users for the Team
-const MOCK_TEAM: User[] = [
-  MOCK_USER,
-  {
-    id: 'u2',
-    name: 'Mike Ross',
-    email: 'mike@example.com',
-    companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/91/200',
-    status: 'Active',
-    role: 'Member'
-  },
-  {
-    id: 'u3',
-    name: 'Sarah Jen',
-    email: 'sarah@example.com',
-    companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/177/200',
-    status: 'Active',
-    role: 'Member'
-  },
-  {
-    id: 'u4',
-    name: 'David Kim',
-    email: 'david@example.com',
-    companyName: 'Acme Corp',
-    avatarUrl: 'https://picsum.photos/id/338/200',
-    status: 'Active',
-    role: 'Viewer'
-  },
-  {
-    id: 'u5',
-    name: 'Emily Chen',
-    email: 'emily.chen@example.com',
-    companyName: 'Acme Corp',
-    avatarUrl: undefined,
-    status: 'Invited',
-    role: 'Member'
-  }
-];
-
-const MOCK_PROJECTS: Project[] = [
-  { 
-    id: 'p1', 
-    name: 'Website Redesign', 
-    description: 'Overhaul the corporate site', 
-    status: 'Active', 
-    dueDate: new Date('2024-12-31'), 
-    ownerId: 'u1',
-    ownerName: 'Rahul Sain',
-    clientName: 'TechFlow Solutions'
-  },
-  { 
-    id: 'p2', 
-    name: 'Mobile App Launch', 
-    description: 'iOS and Android release', 
-    status: 'Active', 
-    dueDate: new Date('2024-10-15'), 
-    ownerId: 'u1',
-    ownerName: 'Rahul Sain',
-    clientName: 'Nexus Retail'
-  },
-  { 
-    id: 'p3', 
-    name: 'Q4 Marketing', 
-    description: 'Holiday campaigns', 
-    status: 'On Hold', 
-    dueDate: new Date('2024-11-20'), 
-    ownerId: 'u2',
-    ownerName: 'Mike Ross',
-    clientName: 'Internal'
-  },
-];
-
-const MOCK_TASKS: Task[] = [
-  {
-    id: 't1',
-    title: 'Draft Project Brief',
-    description: 'Create a comprehensive brief for the design team.',
-    status: Status.TODO,
-    priority: Priority.HIGH,
-    dueDate: new Date('2024-06-20'),
-    assigneeId: 'u1',
-    assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/id/64/200',
-    creatorId: 'u2',
-    projectId: 'p1',
-    projectName: 'Website Redesign',
-    comments: [
-      { id: 'c1', userId: 'u2', userName: 'Jane Doe', content: 'Please include the new brand guidelines.', createdAt: new Date('2024-06-01') }
-    ]
-  },
-  {
-    id: 't2',
-    title: 'Schedule Kickoff Meeting',
-    description: 'Find a time that works for all stakeholders.',
-    status: Status.DONE,
-    priority: Priority.MEDIUM,
-    dueDate: new Date('2024-06-18'),
-    assigneeId: 'u1',
-    assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/id/64/200',
-    creatorId: 'u1',
-    projectId: 'p1',
-    projectName: 'Website Redesign',
-    comments: []
-  },
-  {
-    id: 't3',
-    title: 'Review Wireframes',
-    description: 'Check the initial wireframes for user flow accuracy.',
-    status: Status.IN_PROGRESS,
-    priority: Priority.HIGH,
-    dueDate: new Date('2024-07-01'),
-    assigneeId: 'u2',
-    assigneeName: 'Mike Ross',
-    assigneeAvatar: 'https://picsum.photos/id/91/200',
-    creatorId: 'u1',
-    projectId: 'p2',
-    projectName: 'Mobile App Launch',
-    comments: []
-  },
-  {
-    id: 't4',
-    title: 'Send Email to HR',
-    description: 'Confirm the new hire onboarding process.',
-    status: Status.TODO,
-    priority: Priority.LOW,
-    dueDate: null,
-    assigneeId: 'u1',
-    assigneeName: 'Rahul Sain',
-    assigneeAvatar: 'https://picsum.photos/id/64/200',
-    creatorId: 'u1',
-    projectId: undefined,
-    comments: []
-  }
-];
+import { User, Task, Project } from './types';
+import { authAPI, userAPI, taskAPI, projectAPI, setTokens, getAccessToken } from './services/api';
 
 interface AppContextType {
   user: User | null;
   users: User[];
   tasks: Task[];
   projects: Project[];
-  login: (name: string, email: string) => void;
-  register: (company: string, name: string, email: string) => void;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (companyName: string, name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
-  addTask: (task: Task) => void;
-  updateTask: (task: Task) => void;
-  deleteTask: (taskId: string) => void;
-  addProject: (project: Project) => void;
-  updateProject: (project: Project) => void;
-  deleteProject: (projectId: string) => void;
-  updateUser: (data: Partial<User>) => void;
-  addTeamMember: (name: string) => void;
-  inviteUser: (email: string) => void;
-  updateTeamMember: (user: User) => void;
-  deleteTeamMember: (userId: string) => void;
+  addTask: (task: Partial<Task>) => Promise<void>;
+  updateTask: (task: Task) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
+  addProject: (project: Partial<Project>) => Promise<void>;
+  updateProject: (project: Project) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+  updateUser: (data: Partial<User>) => Promise<void>;
+  inviteUser: (email: string, role?: string) => Promise<void>;
+  updateTeamMember: (user: User) => Promise<void>;
+  deleteTeamMember: (userId: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(MOCK_TEAM);
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
-  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const login = (name: string, email: string) => {
-    // Simulating login
-    setUser({ ...MOCK_USER, name, email });
+  // Load current user on mount if token exists
+  useEffect(() => {
+    const initializeApp = async () => {
+      const token = getAccessToken();
+      if (token) {
+        try {
+          setLoading(true);
+          const userData = await authAPI.getCurrentUser();
+          setUser(userData);
+          await refreshData();
+        } catch (err: any) {
+          console.error('Failed to initialize app:', err);
+          setError(err.message);
+          authAPI.logout();
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  const refreshData = async () => {
+    try {
+      const [usersData, tasksData, projectsData] = await Promise.all([
+        userAPI.getAll(),
+        taskAPI.getAll(),
+        projectAPI.getAll(),
+      ]);
+      
+      setUsers(usersData);
+      setTasks(tasksData);
+      setProjects(projectsData);
+    } catch (err: any) {
+      console.error('Failed to refresh data:', err);
+      setError(err.message);
+    }
   };
 
-  const register = (company: string, name: string, email: string) => {
-    // Simulating register
-    setUser({ ...MOCK_USER, name, email, companyName: company });
+  const login = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authAPI.login({ email, password });
+      setTokens(response.access_token, response.refresh_token);
+      
+      const userData = await authAPI.getCurrentUser();
+      setUser(userData);
+      
+      await refreshData();
+    } catch (err: any) {
+      console.error('Login failed:', err);
+      setError(err.response?.data?.detail || 'Login failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (companyName: string, name: string, email: string, password: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authAPI.register({
+        name,
+        email,
+        password,
+        company_name: companyName,
+      });
+      
+      setTokens(response.access_token, response.refresh_token);
+      
+      const userData = await authAPI.getCurrentUser();
+      setUser(userData);
+      
+      await refreshData();
+    } catch (err: any) {
+      console.error('Registration failed:', err);
+      setError(err.response?.data?.detail || 'Registration failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
+    authAPI.logout();
     setUser(null);
+    setUsers([]);
+    setTasks([]);
+    setProjects([]);
   };
 
-  const updateUser = (data: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...data };
+  const updateUser = async (data: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      setError(null);
+      const updatedUser = await userAPI.update(user.id, data);
       setUser(updatedUser);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    } catch (err: any) {
+      console.error('Failed to update user:', err);
+      setError(err.response?.data?.detail || 'Failed to update user');
+      throw err;
     }
   };
 
-  const addTeamMember = (name: string) => {
-    const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: name,
-        email: `${name.toLowerCase().replace(' ', '.')}@acme.com`,
-        companyName: 'Acme Corp',
-        avatarUrl: undefined,
-        status: 'Active',
-        role: 'Member'
-    };
-    setUsers(prev => [...prev, newUser]);
-  }
-
-  const inviteUser = (email: string) => {
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: email.split('@')[0], // Temporary name derived from email
-      email: email,
-      companyName: 'Acme Corp',
-      avatarUrl: undefined,
-      status: 'Invited',
-      role: 'Member'
-    };
-    setUsers(prev => [...prev, newUser]);
-  }
-
-  const updateTeamMember = (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (user && user.id === updatedUser.id) {
-        setUser(updatedUser);
+  const inviteUser = async (email: string, role?: string) => {
+    try {
+      setError(null);
+      const newUser = await userAPI.invite(email, role);
+      setUsers(prev => [...prev, newUser]);
+    } catch (err: any) {
+      console.error('Failed to invite user:', err);
+      setError(err.response?.data?.detail || 'Failed to invite user');
+      throw err;
     }
   };
 
-  const deleteTeamMember = (userId: string) => {
-    setUsers(prev => prev.filter(u => u.id !== userId));
+  const updateTeamMember = async (updatedUser: User) => {
+    try {
+      setError(null);
+      const updated = await userAPI.update(updatedUser.id, updatedUser);
+      setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+      if (user && user.id === updated.id) {
+        setUser(updated);
+      }
+    } catch (err: any) {
+      console.error('Failed to update team member:', err);
+      setError(err.response?.data?.detail || 'Failed to update team member');
+      throw err;
+    }
   };
 
-  const addTask = (task: Task) => {
-    setTasks(prev => [task, ...prev]);
+  const deleteTeamMember = async (userId: string) => {
+    try {
+      setError(null);
+      await userAPI.delete(userId);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (err: any) {
+      console.error('Failed to delete team member:', err);
+      setError(err.response?.data?.detail || 'Failed to delete team member');
+      throw err;
+    }
   };
 
-  const updateTask = (updatedTask: Task) => {
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  const addTask = async (task: Partial<Task>) => {
+    if (!user) return;
+    
+    try {
+      setError(null);
+      const newTask = await taskAPI.create({
+        title: task.title || 'New Task',
+        description: task.description || '',
+        status: task.status || 'To Do',
+        priority: task.priority || 'Medium',
+        due_date: task.due_date || null,
+        assignee_id: task.assignee_id || user.id,
+        project_id: task.project_id || null,
+      });
+      setTasks(prev => [newTask, ...prev]);
+    } catch (err: any) {
+      console.error('Failed to add task:', err);
+      setError(err.response?.data?.detail || 'Failed to add task');
+      throw err;
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-  }
-
-  const addProject = (project: Project) => {
-    setProjects(prev => [project, ...prev]);
+  const updateTask = async (updatedTask: Task) => {
+    try {
+      setError(null);
+      const updated = await taskAPI.update(updatedTask.id, {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        status: updatedTask.status,
+        priority: updatedTask.priority,
+        due_date: updatedTask.due_date,
+        assignee_id: updatedTask.assignee_id,
+        project_id: updatedTask.project_id,
+      });
+      setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+    } catch (err: any) {
+      console.error('Failed to update task:', err);
+      setError(err.response?.data?.detail || 'Failed to update task');
+      throw err;
+    }
   };
 
-  const updateProject = (updatedProject: Project) => {
-    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+  const deleteTask = async (taskId: string) => {
+    try {
+      setError(null);
+      await taskAPI.delete(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err: any) {
+      console.error('Failed to delete task:', err);
+      setError(err.response?.data?.detail || 'Failed to delete task');
+      throw err;
+    }
   };
 
-  const deleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    // Optional: Delete associated tasks
-    setTasks(prev => prev.filter(t => t.projectId !== projectId));
-  }
+  const addProject = async (project: Partial<Project>) => {
+    if (!user) return;
+    
+    try {
+      setError(null);
+      const newProject = await projectAPI.create({
+        name: project.name || 'New Project',
+        description: project.description || '',
+        status: project.status || 'Active',
+        due_date: project.due_date || null,
+        owner_id: project.owner_id || user.id,
+        client_name: project.client_name || '',
+      });
+      setProjects(prev => [newProject, ...prev]);
+    } catch (err: any) {
+      console.error('Failed to add project:', err);
+      setError(err.response?.data?.detail || 'Failed to add project');
+      throw err;
+    }
+  };
+
+  const updateProject = async (updatedProject: Project) => {
+    try {
+      setError(null);
+      const updated = await projectAPI.update(updatedProject.id, {
+        name: updatedProject.name,
+        description: updatedProject.description,
+        status: updatedProject.status,
+        due_date: updatedProject.due_date,
+        owner_id: updatedProject.owner_id,
+        client_name: updatedProject.client_name,
+      });
+      setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+    } catch (err: any) {
+      console.error('Failed to update project:', err);
+      setError(err.response?.data?.detail || 'Failed to update project');
+      throw err;
+    }
+  };
+
+  const deleteProject = async (projectId: string) => {
+    try {
+      setError(null);
+      await projectAPI.delete(projectId);
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      // Optionally delete associated tasks
+      setTasks(prev => prev.filter(t => t.project_id !== projectId));
+    } catch (err: any) {
+      console.error('Failed to delete project:', err);
+      setError(err.response?.data?.detail || 'Failed to delete project');
+      throw err;
+    }
+  };
 
   return (
     <AppContext.Provider value={{ 
@@ -271,6 +302,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       users,
       tasks, 
       projects, 
+      loading,
+      error,
       login, 
       register, 
       logout, 
@@ -281,10 +314,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateProject,
       deleteProject,
       updateUser,
-      addTeamMember,
       inviteUser,
       updateTeamMember,
-      deleteTeamMember
+      deleteTeamMember,
+      refreshData,
     }}>
       {children}
     </AppContext.Provider>

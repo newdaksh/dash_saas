@@ -100,8 +100,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
           <div className="flex flex-col items-center mb-8">
             <div className="relative group mb-4">
                <div className="w-24 h-24 rounded-full bg-slate-100 p-1 ring-4 ring-slate-50 shadow-md overflow-hidden">
-                   {selectedUser.avatarUrl ? (
-                      <img src={selectedUser.avatarUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                   {selectedUser.avatar_url ? (
+                      <img src={selectedUser.avatar_url} alt="Profile" className="w-full h-full rounded-full object-cover" />
                    ) : (
                       <div className="w-full h-full rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-3xl">
                           {selectedUser.name.charAt(0)}
@@ -178,8 +178,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
 
              <Input 
                 label="Company"
-                value={selectedUser.companyName}
-                onChange={(e) => updateTeamMember({ ...selectedUser, companyName: e.target.value })}
+                value={selectedUser.company_name}
+                onChange={(e) => updateTeamMember({ ...selectedUser, company_name: e.target.value })}
                 icon={<Building size={16} />}
                 disabled={!isSelf}
                 className={!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}
@@ -193,8 +193,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                  </div>
                  <input 
                     type="text"
-                    value={selectedUser.avatarUrl || ''}
-                    onChange={(e) => updateTeamMember({ ...selectedUser, avatarUrl: e.target.value })}
+                    value={selectedUser.avatar_url || ''}
+                    onChange={(e) => updateTeamMember({ ...selectedUser, avatar_url: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                     className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
                     disabled={!isSelf}

@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Task, Status, Priority, Comment, User } from '../types';
-import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown, Building2, Crown, Trash2, UserPlus, AlertTriangle } from 'lucide-react';
+import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
+import { commentAPI } from '../services/api';
 
 interface TaskPanelProps {
   task: Task | null;
@@ -12,18 +13,44 @@ interface TaskPanelProps {
 }
 
 export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) => {
-  const { user, updateTask, deleteTask, projects, users, addTeamMember } = useApp();
+  const { user, updateTask, deleteTask, projects, users } = useApp();
   const [commentText, setCommentText] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [newMemberName, setNewMemberName] = useState('');
-  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
 
+  // Memoized values - must be called before any conditional returns
+  const currentProject = useMemo(() => {
+    if (!task) return undefined;
+    return projects.find(p => p.id === task.project_id);
+  }, [projects, task?.project_id]);
+
+  const isOverdue = useMemo(() => {
+    if (!task) return false;
+    return !!(task.due_date && new Date(task.due_date) < new Date() && task.status !== Status.DONE);
+  }, [task?.due_date, task?.status]);
+
+  const isAssignedToMe = useMemo(() => {
+    if (!task || !user) return false;
+    return user.id === task.assignee_id;
+  }, [user?.id, task?.assignee_id]);
+
+  // Load comments when task changes - must be called before any conditional returns
+  useEffect(() => {
+    if (!task) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await commentAPI.getByTask(task.id);
+        if (mounted) setComments(data);
+      } catch (e) {
+        // fail silently in panel
+      }
+    })();
+    return () => { mounted = false; };
+  }, [task?.id]);
+
+  // Guard - AFTER all hooks
   if (!task || !user) return null;
-
-  const currentProject = projects.find(p => p.id === task.projectId);
-
-  const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== Status.DONE;
-  const isAssignedToMe = user.id === task.assigneeId;
 
   const handleStatusChange = () => {
     const nextStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
@@ -36,73 +63,57 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     onClose();
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!commentText.trim()) return;
-    const newComment: Comment = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId: user.id,
-      userName: user.name,
-      content: commentText,
-      createdAt: new Date()
-    };
-    updateTask({ ...task, comments: [...task.comments, newComment] });
-    setCommentText('');
+    try {
+      const created = await commentAPI.create(task.id, commentText.trim());
+      setComments(prev => [...prev, created]);
+      setCommentText('');
+    } catch (_) {}
   };
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const projectId = e.target.value;
-    const project = projects.find(p => p.id === projectId);
+    const project_id = e.target.value || undefined;
+    const project = projects.find(p => p.id === project_id);
     updateTask({ 
         ...task, 
-        projectId: projectId || undefined, 
-        projectName: project?.name || undefined 
+        project_id, 
+        project_name: project?.name 
     });
   };
 
   const handleAssigneeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-     const userId = e.target.value;
-     if (userId === 'add_new') {
-        setIsAddingMember(true);
-        return;
-     }
-     const selectedUser = users.find(u => u.id === userId);
-     if (selectedUser) {
-        updateTask({
-            ...task,
-            assigneeId: selectedUser.id,
-            assigneeName: selectedUser.name,
-            assigneeAvatar: selectedUser.avatarUrl
-        });
-     }
+    const userId = e.target.value;
+    const selectedUser = users.find(u => u.id === userId);
+    if (selectedUser) {
+      updateTask({
+        ...task,
+        assignee_id: selectedUser.id,
+        assignee_name: selectedUser.name,
+        assignee_avatar: selectedUser.avatar_url
+      });
+    }
   };
 
-  const handleAddNewMember = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(newMemberName.trim()) {
-          addTeamMember(newMemberName);
-          setNewMemberName('');
-          setIsAddingMember(false);
-          // Note: The select will update automatically via context, 
-          // but we won't auto-select the new user here to keep logic simple
-      }
-  }
-
-  // Safe date conversion for input value (YYYY-MM-DD)
-  const dateInputValue = task.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
+    // Safe date conversion for input value (YYYY-MM-DD)
+    const dateInputValue = task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '';
 
   return (
     <>
       {/* Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60] transition-opacity" 
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-60 transition-opacity" 
           onClick={onClose}
+          aria-label="Close task panel backdrop"
+          role="button"
         />
       )}
 
       {/* Slide-over Panel */}
       <div 
-        className={`fixed inset-y-0 right-0 z-[70] w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 z-70 w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        aria-live="polite"
       >
         {/* Delete Confirmation Overlay */}
         {isDeleteConfirmOpen && (
@@ -143,6 +154,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             <button 
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+              title="Close"
+              aria-label="Close task panel"
             >
               <X size={24} />
             </button>
@@ -155,10 +168,10 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           {/* Overdue Banner */}
           {isOverdue && (
             <div className="mb-6 bg-red-50 border border-red-100 rounded-lg p-4 flex items-start gap-3 animate-pulse">
-              <AlertCircle className="text-red-600 mt-0.5 flex-shrink-0" size={18} />
+              <AlertCircle className="text-red-600 mt-0.5 shrink-0" size={18} />
               <div>
                  <h4 className="text-sm font-bold text-red-900">Overdue</h4>
-                 <p className="text-sm text-red-700 mt-0.5">This task was due on {task.dueDate?.toLocaleDateString()}. Please update the status or due date.</p>
+                 <p className="text-sm text-red-700 mt-0.5">This task was due on {task.due_date ? new Date(task.due_date).toLocaleDateString() : ''}. Please update the status or due date.</p>
               </div>
             </div>
           )}
@@ -168,9 +181,10 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
             <div className="relative">
               <select 
-                value={task.projectId || ''} 
+                value={task.project_id || ''} 
                 onChange={handleProjectChange}
                 className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
+                aria-label="Select project"
               >
                 <option value="" className="bg-white text-slate-700">No Project</option>
                 {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
@@ -194,50 +208,38 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             {/* Assignee */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-              {isAddingMember ? (
-                  <form onSubmit={handleAddNewMember} className="flex gap-2">
-                      <input 
-                        autoFocus
-                        value={newMemberName} 
-                        onChange={e => setNewMemberName(e.target.value)}
-                        placeholder="New member name..." 
-                        className="text-xs border rounded px-2 py-1 w-full focus:outline-brand-500"
-                      />
-                      <button type="button" onClick={() => setIsAddingMember(false)} className="text-gray-400 hover:text-gray-600"><X size={14}/></button>
-                      <button type="submit" className="text-brand-600 hover:text-brand-800"><CheckCircle2 size={14}/></button>
-                  </form>
-              ) : (
+                {
                 <div className="relative group">
                     <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
                         <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                        {task.assigneeAvatar ? (
-                            <img src={task.assigneeAvatar} alt="" className="w-full h-full rounded-full object-cover" />
+                    {task.assignee_avatar ? (
+                      <img src={task.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
                         ) : (
-                            task.assigneeName.charAt(0)
+                      (task.assignee_name || '').charAt(0)
                         )}
                         </div>
                         <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                            {task.assigneeName}
+                      {task.assignee_name}
                             <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
                         </span>
                         </div>
                     </div>
                     {/* Invisible select overlay for interaction */}
                     <select
-                        value={task.assigneeId}
-                        onChange={handleAssigneeChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                      value={task.assignee_id}
+                      onChange={handleAssigneeChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                      aria-label="Select assignee"
                     >
                         <optgroup label="Team Members" className="bg-white text-slate-900">
                             {users.map(u => (
                                 <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
                             ))}
                         </optgroup>
-                        <option value="add_new" className="bg-white text-brand-600 font-medium">+ Add New Member</option>
                     </select>
                 </div>
-              )}
+                }
             </div>
 
             {/* Due Date Input */}
@@ -254,9 +256,10 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                  <input 
                    type="date"
                    value={dateInputValue}
-                   onChange={(e) => updateTask({ ...task, dueDate: e.target.value ? new Date(e.target.value) : null })}
+                   onChange={(e) => updateTask({ ...task, due_date: e.target.value || null })}
                    className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
-                   onClick={(e) => e.currentTarget.showPicker()} // Force open picker
+                   title="Select due date"
+                   placeholder="Select due date"
                  />
               </div>
             </div>
@@ -274,6 +277,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       task.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
                       'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                     }`}
+                    aria-label="Select priority"
                   >
                     {Object.values(Priority).map(p => (
                       <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
@@ -297,6 +301,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       value={task.status}
                       onChange={(e) => updateTask({ ...task, status: e.target.value as Status })}
                       className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+                      aria-label="Select status"
                     >
                       {Object.values(Status).map(s => (
                         <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
@@ -318,7 +323,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       <Building2 size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-700">{currentProject.clientName}</span>
+                      <span className="text-sm font-medium text-gray-700">{currentProject.client_name}</span>
                     </div>
                   </div>
                 </div>
@@ -331,7 +336,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       <Crown size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-700">{currentProject.ownerName}</span>
+                      <span className="text-sm font-medium text-gray-700">{currentProject.owner_name}</span>
                     </div>
                   </div>
                 </div>
@@ -362,20 +367,20 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             </h3>
             
             <div className="space-y-6">
-              {task.comments.length === 0 && (
+              {comments.length === 0 && (
                 <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
                   No activity yet. Be the first to comment!
                 </div>
               )}
-              {task.comments.map(comment => (
+              {comments.map(comment => (
                 <div key={comment.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex-shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs">
-                    {comment.userName.charAt(0)}
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                    {comment.user_name.charAt(0)}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <span className="font-medium text-sm text-gray-900">{comment.userName}</span>
-                      <span className="text-xs text-gray-400">{comment.createdAt.toLocaleDateString()}</span>
+                      <span className="font-medium text-sm text-gray-900">{comment.user_name}</span>
+                      <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
                     </div>
                     <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg rounded-tl-none">
                       {comment.content}
@@ -390,8 +395,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
         {/* Comment Input (Sticky Bottom) */}
         <div className="p-4 bg-gray-50 border-t border-gray-200">
           <div className="flex gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand-600 flex-shrink-0 flex items-center justify-center text-white font-bold text-xs">
-              {user.name.charAt(0)}
+            <div className="w-8 h-8 rounded-full bg-brand-600 shrink-0 flex items-center justify-center text-white font-bold text-xs">
+              {(user.name || '').charAt(0)}
             </div>
             <div className="flex-1 relative">
               <input
@@ -405,6 +410,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
               <button 
                 onClick={handleAddComment}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-600 hover:text-brand-700 p-1"
+                aria-label="Send comment"
               >
                 <Send size={16} />
               </button>

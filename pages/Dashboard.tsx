@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../context';
-import { Status, Priority } from '../types';
+import { Status, Priority, parseDate } from '../types';
 import { CheckCircle2, Clock, AlertCircle, BarChart3, Layers, ArrowUpRight, Calendar } from 'lucide-react';
 
 const StatCard = ({ label, value, icon: Icon, colorClass, bgGradient, delay }: any) => (
@@ -30,11 +30,14 @@ export const Dashboard: React.FC = () => {
   const { user, tasks, projects } = useApp();
 
   const stats = useMemo(() => {
-    const myTasks = tasks.filter(t => t.assigneeId === user?.id);
+    const myTasks = tasks.filter(t => t.assignee_id === user?.id);
     return {
       total: myTasks.length,
       completed: myTasks.filter(t => t.status === Status.DONE).length,
-      overdue: myTasks.filter(t => t.dueDate && t.dueDate < new Date() && t.status !== Status.DONE).length,
+      overdue: myTasks.filter(t => {
+        const dueDate = parseDate(t.due_date);
+        return dueDate && dueDate < new Date() && t.status !== Status.DONE;
+      }).length,
       highPriority: myTasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).length
     };
   }, [tasks, user]);
@@ -133,7 +136,7 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-400 pt-4 border-t border-slate-50">
                     <div className="flex items-center gap-1">
                       <Calendar size={14} />
-                      {new Date(project.dueDate).toLocaleDateString()}
+                      {project.due_date ? new Date(project.due_date).toLocaleDateString() : 'No date'}
                     </div>
                     <div className="flex -space-x-2">
                         {/* Mock avatars */}
@@ -158,27 +161,30 @@ export const Dashboard: React.FC = () => {
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2">
             <div className="space-y-1">
-              {tasks.filter(t => t.assigneeId === user.id && t.status !== Status.DONE).slice(0, 5).map(task => (
-                <div key={task.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                  <div className={`mt-1 w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${
-                    task.priority === Priority.HIGH ? 'bg-red-500 shadow-red-200' : 
-                    task.priority === Priority.MEDIUM ? 'bg-orange-400 shadow-orange-200' : 'bg-blue-500 shadow-blue-200'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-800 mb-1 truncate group-hover:text-brand-600 transition-colors">{task.title}</h4>
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <Clock size={12} />
-                      <span className={task.dueDate && task.dueDate < new Date() ? 'text-red-500 font-medium' : ''}>
-                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
-                      </span>
+              {tasks.filter(t => t.assignee_id === user.id && t.status !== Status.DONE).slice(0, 5).map(task => {
+                const dueDate = parseDate(task.due_date);
+                return (
+                  <div key={task.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                    <div className={`mt-1 w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${
+                      task.priority === Priority.HIGH ? 'bg-red-500 shadow-red-200' : 
+                      task.priority === Priority.MEDIUM ? 'bg-orange-400 shadow-orange-200' : 'bg-blue-500 shadow-blue-200'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-slate-800 mb-1 truncate group-hover:text-brand-600 transition-colors">{task.title}</h4>
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <Clock size={12} />
+                        <span className={dueDate && dueDate < new Date() ? 'text-red-500 font-medium' : ''}>
+                          {dueDate ? dueDate.toLocaleDateString() : 'No date'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                       <ArrowUpRight size={16} className="text-slate-400" />
                     </div>
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                     <ArrowUpRight size={16} className="text-slate-400" />
-                  </div>
-                </div>
-              ))}
-              {tasks.filter(t => t.assigneeId === user.id).length === 0 && (
+                );
+              })}
+              {tasks.filter(t => t.assignee_id === user.id).length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   <p>No pending tasks.</p>
                 </div>

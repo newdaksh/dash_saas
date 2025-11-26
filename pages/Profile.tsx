@@ -10,8 +10,8 @@ export const Profile: React.FC = () => {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    companyName: user?.companyName || '',
-    avatarUrl: user?.avatarUrl || ''
+    company_name: user?.company_name || '',
+    avatar_url: user?.avatar_url || ''
   });
   const [isSaved, setIsSaved] = useState(false);
 
@@ -46,8 +46,8 @@ export const Profile: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center h-full">
             <div className="relative group mb-4">
               <div className="w-32 h-32 rounded-full bg-slate-100 p-1 ring-4 ring-white shadow-lg overflow-hidden">
-                 {formData.avatarUrl ? (
-                    <img src={formData.avatarUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                 {formData.avatar_url ? (
+                    <img src={formData.avatar_url} alt="Profile" className="w-full h-full rounded-full object-cover" />
                  ) : (
                     <div className="w-full h-full rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-4xl">
                         {formData.name.charAt(0)}
@@ -60,7 +60,7 @@ export const Profile: React.FC = () => {
             </div>
             
             <h2 className="text-xl font-bold text-slate-800">{user.name}</h2>
-            <p className="text-slate-500 text-sm mb-6">{user.companyName}</p>
+            <p className="text-slate-500 text-sm mb-6">{user.company_name}</p>
 
             <div className="w-full mt-auto pt-6 border-t border-slate-50">
                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Account Type</div>
@@ -92,8 +92,8 @@ export const Profile: React.FC = () => {
                  />
                  <Input 
                    label="Company Name" 
-                   name="companyName" 
-                   value={formData.companyName} 
+                   name="company_name" 
+                   value={formData.company_name} 
                    onChange={handleChange}
                    icon={<Building size={16} />}
                  />
@@ -111,9 +111,9 @@ export const Profile: React.FC = () => {
               <div className="space-y-1.5">
                  <label className="text-sm font-medium text-slate-700">Avatar URL</label>
                  <input 
-                   name="avatarUrl"
+                   name="avatar_url"
                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                   value={formData.avatarUrl}
+                   value={formData.avatar_url}
                    onChange={handleChange}
                    placeholder="https://example.com/photo.jpg"
                  />

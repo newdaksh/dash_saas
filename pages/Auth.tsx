@@ -160,12 +160,17 @@ export const Auth: React.FC = () => {
     }, 400); // Match transition duration
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin) {
-      login('Rahul Sain', formData.email);
-    } else {
-      register(formData.companyName, formData.name, formData.email);
+    try {
+      if (isLogin) {
+        await login(formData.email, formData.password);
+      } else {
+        await register(formData.companyName, formData.name, formData.email, formData.password);
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      // Error is already handled in context
     }
   };
 

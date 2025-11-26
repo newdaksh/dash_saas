@@ -24,22 +24,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const selectedProject = projects.find(p => p.id === projectId);
-
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newTask: Partial<Task> = {
       title,
       description,
       status: Status.TODO,
       priority,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      assigneeId: user.id, // Assign to self by default
-      assigneeName: user.name,
-      assigneeAvatar: user.avatarUrl,
-      creatorId: user.id,
-      projectId: selectedProject?.id,
-      projectName: selectedProject?.name,
-      comments: []
+      due_date: dueDate || null,
+      assignee_id: user.id, // Assign to self by default
+      project_id: projectId || undefined
     };
 
     addTask(newTask);

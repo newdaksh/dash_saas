@@ -22,7 +22,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
   // Filter tasks belonging to this project
   const projectTasks = useMemo(() => {
     if (!project) return [];
-    let filtered = tasks.filter(t => t.projectId === project.id);
+    let filtered = tasks.filter(t => t.project_id === project.id);
     
     if (taskStatusFilter !== 'All') {
       filtered = filtered.filter(t => t.status === taskStatusFilter);
@@ -48,7 +48,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
   }
 
   // Safe date conversion
-  const dateInputValue = project.dueDate ? new Date(project.dueDate.getTime() - (project.dueDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
+  const dateInputValue = project.due_date ? new Date(project.due_date).toISOString().split('T')[0] : '';
 
   return (
     <>
@@ -91,7 +91,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                 <h2 className="text-xl font-bold text-gray-900 tracking-tight">Project Overview</h2>
                 <div className="flex items-center gap-2 mt-0.5">
                    <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                     {project.clientName}
+                     {project.client_name}
                    </span>
                 </div>
              </div>
@@ -158,8 +158,8 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
               <div className="flex items-center gap-2">
                  <Building2 size={16} className="text-gray-400" />
                  <input 
-                   value={project.clientName}
-                   onChange={(e) => updateProject({...project, clientName: e.target.value})}
+                   value={project.client_name}
+                   onChange={(e) => updateProject({...project, client_name: e.target.value})}
                    className="bg-white border border-gray-200 rounded-md px-2 py-1.5 text-sm font-medium text-gray-800 w-full focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                  />
               </div>
@@ -172,8 +172,8 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                  <Crown size={16} className="text-amber-500 flex-shrink-0" />
                  <input
                    type="text"
-                   value={project.ownerName}
-                   onChange={(e) => updateProject({ ...project, ownerName: e.target.value })}
+                   value={project.owner_name}
+                   onChange={(e) => updateProject({ ...project, owner_name: e.target.value })}
                    className="text-sm font-medium text-gray-800 w-full focus:outline-none bg-transparent placeholder-gray-400"
                    placeholder="Assign Owner"
                  />
@@ -190,7 +190,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                  <input 
                    type="date"
                    value={dateInputValue}
-                   onChange={(e) => updateProject({ ...project, dueDate: e.target.value ? new Date(e.target.value) : new Date() })}
+                   onChange={(e) => updateProject({ ...project, due_date: e.target.value || null })}
                    className="bg-white border border-gray-200 rounded-md pl-8 pr-2 py-1.5 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-sm font-medium text-gray-800 cursor-pointer w-full"
                    onClick={(e) => e.currentTarget.showPicker()}
                  />

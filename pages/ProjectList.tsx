@@ -47,7 +47,7 @@ export const ProjectList: React.FC = () => {
   , [projects, selectedProjectId]);
 
   const uniqueOwners = useMemo(() => {
-    const owners = new Set(projects.map(p => p.ownerName));
+    const owners = new Set(projects.map(p => p.owner_name));
     return Array.from(owners);
   }, [projects]);
 
@@ -63,12 +63,12 @@ export const ProjectList: React.FC = () => {
 
     // Owner Filter
     if (ownerFilter !== 'All') {
-      result = result.filter(p => p.ownerName === ownerFilter);
+      result = result.filter(p => p.owner_name === ownerFilter);
     }
 
     // Client Name Filter (Searchable)
     if (clientFilter) {
-      result = result.filter(p => p.clientName.toLowerCase().includes(clientFilter.toLowerCase()));
+      result = result.filter(p => p.client_name.toLowerCase().includes(clientFilter.toLowerCase()));
     }
 
     // General Search
@@ -83,8 +83,8 @@ export const ProjectList: React.FC = () => {
     // Sorting
     if (sortOrder) {
        result = [...result].sort((a, b) => {
-          const dateA = new Date(a.dueDate).getTime();
-          const dateB = new Date(b.dueDate).getTime();
+          const dateA = new Date(a.due_date || '').getTime();
+          const dateB = new Date(b.due_date || '').getTime();
           return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
        });
     }
@@ -315,14 +315,14 @@ export const ProjectList: React.FC = () => {
                         <div className="flex items-center justify-between text-sm">
                            <div className="flex items-center gap-2 text-slate-600">
                               <Building2 size={16} className="text-slate-400" />
-                              <span className="font-medium truncate max-w-[120px]">{project.clientName}</span>
+                              <span className="font-medium truncate max-w-[120px]">{project.client_name}</span>
                            </div>
                            <div className="text-slate-400 text-xs">Client</div>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                            <div className="flex items-center gap-2 text-slate-600">
                               <Calendar size={16} className="text-slate-400" />
-                              <span>{new Date(project.dueDate).toLocaleDateString()}</span>
+                              <span>{project.due_date ? new Date(project.due_date).toLocaleDateString() : 'No date'}</span>
                            </div>
                            <div className="text-slate-400 text-xs">Due Date</div>
                         </div>

@@ -23,15 +23,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newProject: Project = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newProject: Partial<Project> = {
       name,
       description,
       status: 'Active',
-      dueDate: dueDate ? new Date(dueDate) : new Date(),
-      ownerId: user.id,
-      ownerName: user.name,
-      clientName: clientName || 'Internal'
+      due_date: dueDate || null,
+      owner_id: user.id,
+      client_name: clientName || 'Internal'
     };
 
     addProject(newProject);

@@ -83,8 +83,8 @@ export const UserList: React.FC = () => {
                     >
                         <div className="flex items-start justify-between mb-4">
                             <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-100 to-blue-200 p-[3px] ring-2 ring-white shadow-md">
-                                {user.avatarUrl ? (
-                                    <img src={user.avatarUrl} alt={user.name} className="w-full h-full rounded-full object-cover bg-white" />
+                                {user.avatar_url ? (
+                                    <img src={user.avatar_url} alt={user.name} className="w-full h-full rounded-full object-cover bg-white" />
                                 ) : (
                                     <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-xl font-bold text-blue-600">
                                         {user.name.charAt(0)}
