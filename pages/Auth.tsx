@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context';
 import { Button } from '../components/Button';
@@ -22,6 +23,7 @@ const ParticleBackground = () => {
     const particleCount = Math.min(Math.floor((width * height) / 10000), 100); // Responsive count
     const connectionDistance = 150;
     const mouseDistance = 200;
+    let animationFrameId: number;
 
     let mouse = { x: 0, y: 0 };
 
@@ -105,7 +107,7 @@ const ParticleBackground = () => {
           }
         }
       });
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     };
 
     init();
@@ -130,6 +132,7 @@ const ParticleBackground = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
     };
   }, []);
 

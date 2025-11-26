@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -109,9 +110,10 @@ export const ThreeBackground: React.FC = () => {
 
     // --- Animation Loop ---
     const clock = new THREE.Clock();
+    let frameId: number;
 
     const animate = () => {
-      requestAnimationFrame(animate);
+      frameId = requestAnimationFrame(animate);
       const time = clock.getElapsedTime();
 
       // Smooth camera parallax
@@ -153,7 +155,9 @@ export const ThreeBackground: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
-      if (containerRef.current) {
+      cancelAnimationFrame(frameId);
+      
+      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
       geometry.dispose();

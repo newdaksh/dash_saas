@@ -11,7 +11,7 @@ type SortOption = 'default' | 'dueDate' | 'priority';
 type DateFilter = 'all' | 'today' | 'week' | 'overdue';
 
 export const TaskList: React.FC = () => {
-  const { user, tasks, projects } = useApp();
+  const { user, tasks, projects, updateTask } = useApp();
   const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -101,6 +101,12 @@ export const TaskList: React.FC = () => {
 
   const handleRowClick = (task: Task) => {
     setSelectedTaskId(task.id);
+  };
+
+  const handleToggleStatus = (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    const newStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
+    updateTask({ ...task, status: newStatus });
   };
 
   return (
@@ -266,7 +272,9 @@ export const TaskList: React.FC = () => {
 
                   {/* Task Status & Title */}
                   <div className="col-span-12 md:col-span-5 flex items-center gap-4 relative z-10">
-                    <div className={`transition-all duration-300 group-hover:scale-110 p-1 rounded-full ${
+                    <div 
+                      onClick={(e) => handleToggleStatus(e, task)}
+                      className={`transition-all duration-300 group-hover:scale-110 p-1 rounded-full cursor-pointer z-20 ${
                       task.status === Status.DONE 
                         ? 'text-green-500 bg-green-50/50' 
                         : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/50'

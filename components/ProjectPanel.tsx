@@ -168,9 +168,15 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
             {/* Owner */}
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Owner</span>
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-2 py-1.5">
-                 <Crown size={16} className="text-amber-500" />
-                 <span className="text-sm font-medium text-gray-800">{project.ownerName}</span>
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus-within:ring-1 focus-within:ring-purple-500 focus-within:border-purple-500 transition-shadow">
+                 <Crown size={16} className="text-amber-500 flex-shrink-0" />
+                 <input
+                   type="text"
+                   value={project.ownerName}
+                   onChange={(e) => updateProject({ ...project, ownerName: e.target.value })}
+                   className="text-sm font-medium text-gray-800 w-full focus:outline-none bg-transparent placeholder-gray-400"
+                   placeholder="Assign Owner"
+                 />
               </div>
             </div>
 
