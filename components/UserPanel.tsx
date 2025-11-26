@@ -117,6 +117,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                 value={selectedUser.name}
                 onChange={(e) => updateTeamMember({ ...selectedUser, name: e.target.value })}
                 icon={<UserIcon size={16} />}
+                disabled={!isSelf}
+                className={!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}
              />
 
              <div className="flex flex-col gap-1.5">
@@ -129,7 +131,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                     type="email"
                     value={selectedUser.email}
                     onChange={(e) => updateTeamMember({ ...selectedUser, email: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
+                    disabled={!isSelf}
                  />
                </div>
              </div>
@@ -144,7 +147,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                       <select
                         value={selectedUser.role}
                         onChange={(e) => updateTeamMember({ ...selectedUser, role: e.target.value as any })}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer"
+                        className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
+                        disabled={!isSelf}
                       >
                          <option value="Admin">Admin</option>
                          <option value="Member">Member</option>
@@ -162,7 +166,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                       <select
                         value={selectedUser.status}
                         onChange={(e) => updateTeamMember({ ...selectedUser, status: e.target.value as any })}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer"
+                        className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
+                        disabled={!isSelf}
                       >
                          <option value="Active">Active</option>
                          <option value="Invited">Invited</option>
@@ -176,6 +181,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                 value={selectedUser.companyName}
                 onChange={(e) => updateTeamMember({ ...selectedUser, companyName: e.target.value })}
                 icon={<Building size={16} />}
+                disabled={!isSelf}
+                className={!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}
              />
              
              <div className="flex flex-col gap-1.5">
@@ -189,7 +196,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                     value={selectedUser.avatarUrl || ''}
                     onChange={(e) => updateTeamMember({ ...selectedUser, avatarUrl: e.target.value })}
                     placeholder="https://example.com/image.jpg"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
+                    disabled={!isSelf}
                  />
                </div>
              </div>
