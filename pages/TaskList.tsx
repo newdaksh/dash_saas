@@ -1,17 +1,16 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
 import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock } from 'lucide-react';
 import { Button } from '../components/Button';
 import { TaskPanel } from '../components/TaskPanel';
-import { CreateTaskModal } from '../components/CreateTaskModal';
 
 type SortOption = 'default' | 'dueDate' | 'priority';
 type DateFilter = 'all' | 'today' | 'week' | 'overdue';
 
 export const TaskList: React.FC = () => {
-  const { user, tasks, projects, updateTask } = useApp();
+  const { user, tasks, projects, updateTask, addTask } = useApp();
   const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -19,7 +18,9 @@ export const TaskList: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [search, setSearch] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // State to track which task should be auto-focused (for new tasks)
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
 
   // Derive the selected task from the latest tasks array
   const selectedTask = useMemo(() => 
@@ -99,6 +100,16 @@ export const TaskList: React.FC = () => {
     return result;
   }, [tasks, user, filter, statusFilter, dateFilter, projectFilter, sortBy, search]);
 
+  // Effect to auto-focus new tasks
+  useEffect(() => {
+    if (focusedTaskId) {
+      const element = document.getElementById(`task-input-${focusedTaskId}`);
+      if (element) {
+        element.focus();
+      }
+    }
+  }, [focusedTaskId]);
+
   const handleRowClick = (task: Task) => {
     setSelectedTaskId(task.id);
   };
@@ -107,6 +118,43 @@ export const TaskList: React.FC = () => {
     e.stopPropagation();
     const newStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
     updateTask({ ...task, status: newStatus });
+  };
+
+  const handleCreateTask = () => {
+    if (!user) return;
+    
+    // Create a new blank task
+    const newTask: Task = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: '',
+      description: '',
+      status: Status.TODO,
+      priority: Priority.MEDIUM,
+      dueDate: null,
+      assigneeId: user.id,
+      assigneeName: user.name,
+      assigneeAvatar: user.avatarUrl,
+      creatorId: user.id,
+      projectId: projectFilter !== 'all' ? projectFilter : undefined,
+      projectName: projectFilter !== 'all' ? projects.find(p => p.id === projectFilter)?.name : undefined,
+      comments: []
+    };
+
+    addTask(newTask);
+    setFocusedTaskId(newTask.id);
+    
+    // Reset filters that might hide the new task
+    if (filter !== 'assigned_to_me') setFilter('assigned_to_me');
+    if (statusFilter !== 'All' && statusFilter !== Status.TODO) setStatusFilter('All');
+    if (dateFilter !== 'all') setDateFilter('all');
+    setSortBy('default'); 
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent, taskId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreateTask();
+    }
   };
 
   return (
@@ -133,7 +181,7 @@ export const TaskList: React.FC = () => {
           <Button 
             variant="primary" 
             className="bg-brand-600/90 hover:bg-brand-600 backdrop-blur text-white shadow-xl shadow-brand-500/20 rounded-xl px-6 py-3 transition-all hover:scale-105 active:scale-95 border border-brand-400/30"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleCreateTask}
           >
             <Plus size={18} className="mr-2 stroke-[2.5]" />
             Add New Task
@@ -281,10 +329,24 @@ export const TaskList: React.FC = () => {
                     }`}>
                       {task.status === Status.DONE ? <CheckCircle2 size={20} className="fill-green-100" /> : <Circle size={20} strokeWidth={2.5} />}
                     </div>
-                    <div className="min-w-0">
-                      <span className={`text-sm font-bold block truncate transition-colors ${task.status === Status.DONE ? 'text-slate-400 line-through' : 'text-slate-800 group-hover:text-brand-700'}`}>
-                        {task.title}
-                      </span>
+                    <div className="min-w-0 flex-1">
+                      {/* Inline Editable Title */}
+                      <input 
+                        id={`task-input-${task.id}`}
+                        type="text"
+                        value={task.title}
+                        onChange={(e) => updateTask({...task, title: e.target.value})}
+                        onKeyDown={(e) => handleTitleKeyDown(e, task.id)}
+                        onClick={(e) => e.stopPropagation()} // Prevent opening panel when editing text
+                        placeholder="Write a task name..."
+                        autoComplete="off"
+                        className={`w-full bg-transparent border-none p-0 focus:ring-0 text-sm font-bold block truncate transition-colors placeholder-slate-400 ${
+                            task.status === Status.DONE 
+                            ? 'text-slate-400 line-through' 
+                            : 'text-slate-800 focus:text-slate-900'
+                        }`}
+                      />
+                      
                       <div className="flex items-center gap-2 mt-1 md:hidden">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                             task.priority === Priority.HIGH ? 'bg-red-50 text-red-600 border-red-100' :
@@ -375,12 +437,6 @@ export const TaskList: React.FC = () => {
         task={selectedTask} 
         isOpen={!!selectedTask} 
         onClose={() => setSelectedTaskId(null)} 
-      />
-
-      {/* Create Task Modal */}
-      <CreateTaskModal 
-        isOpen={isCreateModalOpen} 
-        onClose={() => setIsCreateModalOpen(false)} 
       />
     </div>
   );
