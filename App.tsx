@@ -8,10 +8,12 @@ import { Auth } from './pages/Auth';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar">
-        {children}
+      <main className="flex-1 overflow-y-auto h-full p-4 md:p-8 custom-scrollbar scroll-smooth">
+        <div className="max-w-7xl mx-auto h-full">
+           {children}
+        </div>
       </main>
     </div>
   );

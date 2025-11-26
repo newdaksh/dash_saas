@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority, Comment } from '../types';
-import { X, Calendar, User, CheckCircle2, Circle, AlertCircle, MessageSquare, Paperclip, Send } from 'lucide-react';
+import { X, Calendar, User, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 
@@ -11,10 +11,13 @@ interface TaskPanelProps {
 }
 
 export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) => {
-  const { user, updateTask } = useApp();
+  const { user, updateTask, projects } = useApp();
   const [commentText, setCommentText] = useState('');
 
   if (!task || !user) return null;
+
+  const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== Status.DONE;
+  const isAssignedToMe = user.id === task.assigneeId;
 
   const handleStatusChange = () => {
     const nextStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
@@ -33,6 +36,19 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     updateTask({ ...task, comments: [...task.comments, newComment] });
     setCommentText('');
   };
+
+  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const projectId = e.target.value;
+    const project = projects.find(p => p.id === projectId);
+    updateTask({ 
+        ...task, 
+        projectId: projectId || undefined, 
+        projectName: project?.name || undefined 
+    });
+  };
+
+  // Safe date conversion for input value (YYYY-MM-DD)
+  const dateInputValue = task.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
 
   return (
     <>
@@ -74,24 +90,49 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           
-          {/* Project Breadcrumb */}
-          {task.projectName && (
-            <div className="mb-4 text-sm text-gray-500 flex items-center gap-2">
-              <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">Project</span>
-              <span>{task.projectName}</span>
+          {/* Overdue Banner */}
+          {isOverdue && (
+            <div className="mb-6 bg-red-50 border border-red-100 rounded-lg p-4 flex items-start gap-3 animate-pulse">
+              <AlertCircle className="text-red-600 mt-0.5 flex-shrink-0" size={18} />
+              <div>
+                 <h4 className="text-sm font-bold text-red-900">Overdue</h4>
+                 <p className="text-sm text-red-700 mt-0.5">This task was due on {task.dueDate?.toLocaleDateString()}. Please update the status or due date.</p>
+              </div>
             </div>
           )}
 
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-6 leading-tight">{task.title}</h1>
+          {/* Project Breadcrumb / Selector */}
+          <div className="mb-4 flex items-center gap-2 group">
+            <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
+            <div className="relative">
+              <select 
+                value={task.projectId || ''} 
+                onChange={handleProjectChange}
+                className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
+              >
+                <option value="">No Project</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Title Input */}
+          <input 
+            type="text"
+            value={task.title}
+            onChange={(e) => updateTask({ ...task, title: e.target.value })}
+            className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
+            placeholder="Task Title"
+          />
 
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
             
-            {/* Assignee */}
+            {/* Assignee (Read-only for now but styled) */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-              <div className="flex items-center gap-2 group cursor-pointer hover:bg-gray-50 p-1 -ml-1 rounded-md transition-colors">
+              <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
                 <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
                    {task.assigneeAvatar ? (
                       <img src={task.assigneeAvatar} alt="" className="w-full h-full rounded-full object-cover" />
@@ -99,51 +140,94 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                       task.assigneeName.charAt(0)
                    )}
                 </div>
-                <span className="text-sm font-medium text-gray-700">{task.assigneeName}</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    {task.assigneeName}
+                    {isAssignedToMe && (
+                      <span className="bg-brand-100 text-brand-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">You</span>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Due Date */}
+            {/* Due Date Input */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
-              <div className="flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${task.dueDate ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
-                  <Calendar size={16} />
-                </div>
-                <span>{task.dueDate ? task.dueDate.toLocaleDateString() : 'No Due Date'}</span>
+              <div className="flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group hover:bg-slate-50 rounded transition-colors cursor-pointer relative">
+                 <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${
+                   !task.dueDate ? 'bg-gray-100 text-gray-400' :
+                   isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
+                 }`}>
+                   <Calendar size={16} />
+                 </div>
+                 <input 
+                   type="date"
+                   value={dateInputValue}
+                   onChange={(e) => updateTask({ ...task, dueDate: e.target.value ? new Date(e.target.value) : null })}
+                   className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
+                 />
               </div>
             </div>
 
-            {/* Priority */}
+            {/* Priority Selector */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Priority</span>
               <div className="flex items-center gap-2 p-1 -ml-1">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
-                  task.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
-                  task.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                  'bg-blue-50 text-blue-700 border-blue-200'
-                }`}>
-                  {task.priority}
-                </span>
+                <div className="relative">
+                  <select
+                    value={task.priority}
+                    onChange={(e) => updateTask({ ...task, priority: e.target.value as Priority })}
+                    className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${
+                      task.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                      task.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
+                      'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                    }`}
+                  >
+                    {Object.values(Priority).map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
+                     task.priority === Priority.HIGH ? 'text-red-700' :
+                     task.priority === Priority.MEDIUM ? 'text-yellow-700' :
+                     'text-blue-700'
+                  }`} />
+                </div>
               </div>
             </div>
 
-             {/* Status */}
+             {/* Status Selector */}
              <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Status</span>
-              <div className="flex items-center gap-2 p-1 -ml-1 text-sm font-medium text-gray-700">
-                {task.status}
+              <div className="flex items-center gap-2 p-1 -ml-1">
+                 <div className="relative w-full">
+                    <select
+                      value={task.status}
+                      onChange={(e) => updateTask({ ...task, status: e.target.value as Status })}
+                      className="appearance-none w-full bg-slate-50 border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      {Object.values(Status).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                 </div>
               </div>
             </div>
 
           </div>
 
-          {/* Description */}
+          {/* Description Textarea */}
           <div className="mb-8">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
-             <div className="text-gray-700 text-base leading-relaxed whitespace-pre-wrap">
-               {task.description || "No description provided."}
-             </div>
+             <textarea
+               value={task.description}
+               onChange={(e) => updateTask({ ...task, description: e.target.value })}
+               className="w-full text-gray-700 text-base leading-relaxed bg-transparent border border-transparent hover:border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-2 -ml-2 transition-all resize-none placeholder-gray-400"
+               rows={6}
+               placeholder="Add a description..."
+             />
           </div>
 
           <div className="h-px bg-gray-200 w-full mb-8"></div>
@@ -156,6 +240,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             </h3>
             
             <div className="space-y-6">
+              {task.comments.length === 0 && (
+                <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
+                  No activity yet. Be the first to comment!
+                </div>
+              )}
               {task.comments.map(comment => (
                 <div key={comment.id} className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-indigo-100 flex-shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs">
