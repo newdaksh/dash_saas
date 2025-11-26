@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
@@ -5,13 +6,8 @@ import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, List
 import { Button } from '../components/Button';
 import { TaskPanel } from '../components/TaskPanel';
 import { CreateTaskModal } from '../components/CreateTaskModal';
-import { ThreeBackground } from '../components/ThreeBackground';
 
-interface TaskListProps {
-  mode: 'all_tasks' | 'projects_view';
-}
-
-export const TaskList: React.FC<TaskListProps> = ({ mode }) => {
+export const TaskList: React.FC = () => {
   const { user, tasks } = useApp();
   const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
@@ -48,12 +44,8 @@ export const TaskList: React.FC<TaskListProps> = ({ mode }) => {
       );
     }
 
-    if (mode === 'projects_view') {
-       result = result.filter(t => !!t.projectId);
-    }
-
     return result;
-  }, [tasks, user, filter, statusFilter, search, mode]);
+  }, [tasks, user, filter, statusFilter, search]);
 
   const handleRowClick = (task: Task) => {
     setSelectedTaskId(task.id);
@@ -61,39 +53,33 @@ export const TaskList: React.FC<TaskListProps> = ({ mode }) => {
 
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
-      {/* Three.js Background Layer */}
-      <ThreeBackground />
-
+      
       <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1">
         
         {/* Header Section with Glass Effect */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">
           <div>
             <div className="flex items-center gap-2 mb-2">
-               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 ${
-                 mode === 'projects_view' ? 'bg-purple-100/80 text-purple-700' : 'bg-brand-100/80 text-brand-700'
-               }`}>
-                 {mode === 'projects_view' ? 'Projects' : 'Workspace'}
+               <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-brand-100/80 text-brand-700">
+                 Workspace
                </span>
             </div>
             <h1 className="text-4xl font-black text-slate-800 tracking-tight drop-shadow-sm">
-              {mode === 'projects_view' ? 'Project Overview' : 'My Tasks'}
+              My Tasks
             </h1>
             <p className="text-slate-600 font-medium mt-1">
               {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} available
             </p>
           </div>
           
-          {mode === 'all_tasks' && (
-            <Button 
-              variant="primary" 
-              className="bg-brand-600/90 hover:bg-brand-600 backdrop-blur text-white shadow-xl shadow-brand-500/20 rounded-xl px-6 py-3 transition-all hover:scale-105 active:scale-95 border border-brand-400/30"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <Plus size={18} className="mr-2 stroke-[2.5]" />
-              Add New Task
-            </Button>
-          )}
+          <Button 
+            variant="primary" 
+            className="bg-brand-600/90 hover:bg-brand-600 backdrop-blur text-white shadow-xl shadow-brand-500/20 rounded-xl px-6 py-3 transition-all hover:scale-105 active:scale-95 border border-brand-400/30"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus size={18} className="mr-2 stroke-[2.5]" />
+            Add New Task
+          </Button>
         </div>
 
         {/* Floating Controls Bar (Glass Capsule) */}

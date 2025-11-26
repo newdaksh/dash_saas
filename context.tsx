@@ -117,6 +117,8 @@ interface AppContextType {
   logout: () => void;
   addTask: (task: Task) => void;
   updateTask: (task: Task) => void;
+  addProject: (project: Project) => void;
+  updateProject: (project: Project) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -148,8 +150,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
   };
 
+  const addProject = (project: Project) => {
+    setProjects(prev => [project, ...prev]);
+  };
+
+  const updateProject = (updatedProject: Project) => {
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+  };
+
   return (
-    <AppContext.Provider value={{ user, tasks, projects, login, register, logout, addTask, updateTask }}>
+    <AppContext.Provider value={{ 
+      user, 
+      tasks, 
+      projects, 
+      login, 
+      register, 
+      logout, 
+      addTask, 
+      updateTask,
+      addProject,
+      updateProject
+    }}>
       {children}
     </AppContext.Provider>
   );

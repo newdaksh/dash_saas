@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { TaskList } from './pages/TaskList';
+import { ProjectList } from './pages/ProjectList';
 import { Auth } from './pages/Auth';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -43,7 +45,7 @@ const AppRoutes = () => {
         path="/tasks" 
         element={
           <ProtectedRoute>
-            <TaskList mode="all_tasks" />
+            <TaskList />
           </ProtectedRoute>
         } 
       />
@@ -51,7 +53,7 @@ const AppRoutes = () => {
         path="/projects" 
         element={
           <ProtectedRoute>
-            <TaskList mode="projects_view" />
+            <ProjectList />
           </ProtectedRoute>
         } 
       />

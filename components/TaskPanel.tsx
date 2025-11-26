@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Task, Status, Priority, Comment } from '../types';
 import { X, Calendar, User, CheckCircle2, AlertCircle, MessageSquare, Paperclip, Send, ChevronDown, Building2, Crown } from 'lucide-react';
@@ -208,7 +207,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                     <select
                       value={task.status}
                       onChange={(e) => updateTask({ ...task, status: e.target.value as Status })}
-                      className="appearance-none w-full bg-slate-50 border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
                     >
                       {Object.values(Status).map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -258,7 +257,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
              <textarea
                value={task.description}
                onChange={(e) => updateTask({ ...task, description: e.target.value })}
-               className="w-full text-gray-700 text-base leading-relaxed bg-transparent border border-transparent hover:border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-2 -ml-2 transition-all resize-none placeholder-gray-400"
+               className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
                rows={6}
                placeholder="Add a description..."
              />
@@ -311,7 +310,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Ask a question or post an update..."
-                className="w-full border border-gray-300 rounded-lg pl-4 pr-12 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent shadow-sm"
+                className="w-full border border-gray-300 bg-white rounded-lg pl-4 pr-12 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent shadow-sm"
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
               />
               <button 

@@ -87,7 +87,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                placeholder="What needs to be done?"
                required
                autoFocus
-               className="text-lg font-medium bg-white"
+               className="text-lg font-medium"
              />
              
              <div className="flex flex-col gap-2">
@@ -96,7 +96,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                  Description
                </label>
                <textarea
-                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 min-h-[100px] resize-none bg-slate-50/50 hover:bg-white transition-colors"
+                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 min-h-[100px] resize-none bg-white transition-colors"
                  value={description}
                  onChange={e => setDescription(e.target.value)}
                  placeholder="Add context, requirements, or acceptance criteria..."
@@ -111,7 +111,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                  </label>
                  <div className="relative">
                    <select
-                     className="w-full appearance-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-slate-50/50 hover:bg-white transition-colors cursor-pointer"
+                     className="w-full appearance-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-white transition-colors cursor-pointer"
                      value={priority}
                      onChange={e => setPriority(e.target.value as Priority)}
                    >
@@ -132,7 +132,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                  </label>
                  <input
                    type="date"
-                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-slate-50/50 hover:bg-white transition-colors text-slate-600"
+                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-white transition-colors text-slate-600"
                    value={dueDate}
                    onChange={e => setDueDate(e.target.value)}
                  />
@@ -146,7 +146,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                </label>
                <div className="relative">
                  <select
-                   className="w-full appearance-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-slate-50/50 hover:bg-white transition-colors cursor-pointer"
+                   className="w-full appearance-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 bg-white transition-colors cursor-pointer"
                    value={projectId}
                    onChange={e => setProjectId(e.target.value)}
                  >
