@@ -340,10 +340,10 @@ export const TaskList: React.FC = () => {
                         onClick={(e) => e.stopPropagation()} // Prevent opening panel when editing text
                         placeholder="Write a task name..."
                         autoComplete="off"
-                        className={`w-full bg-transparent border-none p-0 focus:ring-0 text-sm font-bold block truncate transition-colors placeholder-slate-400 ${
+                        className={`w-full bg-transparent border border-transparent rounded px-2 -ml-2 py-1 -my-1 text-sm font-bold block truncate transition-all placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none ${
                             task.status === Status.DONE 
                             ? 'text-slate-400 line-through' 
-                            : 'text-slate-800 focus:text-slate-900'
+                            : 'text-slate-800'
                         }`}
                       />
                       
