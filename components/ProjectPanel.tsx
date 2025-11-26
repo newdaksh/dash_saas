@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Project, Status, Priority } from '../types';
-import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, ArrowUpRight } from 'lucide-react';
+import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, Filter } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 
@@ -12,12 +12,24 @@ interface ProjectPanelProps {
 
 export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onClose }) => {
   const { user, updateProject, tasks } = useApp();
+  const [taskStatusFilter, setTaskStatusFilter] = useState<string>('All');
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>('All');
 
   // Filter tasks belonging to this project
   const projectTasks = useMemo(() => {
     if (!project) return [];
-    return tasks.filter(t => t.projectId === project.id);
-  }, [tasks, project]);
+    let filtered = tasks.filter(t => t.projectId === project.id);
+    
+    if (taskStatusFilter !== 'All') {
+      filtered = filtered.filter(t => t.status === taskStatusFilter);
+    }
+    
+    if (taskPriorityFilter !== 'All') {
+      filtered = filtered.filter(t => t.priority === taskPriorityFilter);
+    }
+
+    return filtered;
+  }, [tasks, project, taskStatusFilter, taskPriorityFilter]);
 
   if (!project || !user) return null;
 
@@ -155,18 +167,45 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
 
           {/* Associated Tasks */}
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                  <CheckCircle2 className="text-purple-600" size={20} />
                  Project Tasks
+                 <span className="text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 px-2.5 py-1 rounded-full">{projectTasks.length}</span>
                </h3>
-               <span className="text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 px-2.5 py-1 rounded-full">{projectTasks.length} Tasks</span>
+
+               {/* Task Filters */}
+               <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <select
+                       value={taskStatusFilter}
+                       onChange={(e) => setTaskStatusFilter(e.target.value)}
+                       className="appearance-none bg-white border border-slate-200 text-slate-600 text-xs rounded-lg pl-2 pr-6 py-1.5 font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none cursor-pointer"
+                    >
+                       <option value="All">All Status</option>
+                       {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                  
+                  <div className="relative">
+                    <select
+                       value={taskPriorityFilter}
+                       onChange={(e) => setTaskPriorityFilter(e.target.value)}
+                       className="appearance-none bg-white border border-slate-200 text-slate-600 text-xs rounded-lg pl-2 pr-6 py-1.5 font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none cursor-pointer"
+                    >
+                       <option value="All">All Priority</option>
+                       {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+               </div>
             </div>
             
             <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 min-h-[120px]">
                {projectTasks.length === 0 ? (
                  <div className="flex flex-col items-center justify-center h-24 text-center">
-                    <p className="text-slate-400 text-sm">No tasks assigned to this project yet.</p>
+                    <p className="text-slate-400 text-sm">No tasks found matching your filters.</p>
                  </div>
                ) : (
                  projectTasks.map(task => (
@@ -185,6 +224,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                                 task.priority === Priority.HIGH ? 'bg-red-50 text-red-600' :
                                 task.priority === Priority.MEDIUM ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
                             }`}>{task.priority}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded-full">{task.status}</span>
                          </div>
                       </div>
                       <div className="text-xs text-gray-400 font-medium whitespace-nowrap">
