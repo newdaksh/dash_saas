@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
 import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock } from 'lucide-react';
@@ -9,7 +10,92 @@ import { TaskPanel } from '../components/TaskPanel';
 type SortOption = 'default' | 'dueDate' | 'priority';
 type DateFilter = 'all' | 'today' | 'week' | 'overdue';
 
+// Separate component for editable task row to isolate re-renders
+const TaskTitleInput: React.FC<{
+  task: Task;
+  onUpdate: (task: Task) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+}> = React.memo(({ task, onUpdate, onKeyDown }) => {
+  const [localTitle, setLocalTitle] = useState(task.title);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Only sync with external changes when NOT actively editing
+  useEffect(() => {
+    if (!isEditingRef.current) {
+      setLocalTitle(task.title);
+    }
+  }, [task.title]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    isEditingRef.current = true;
+    setLocalTitle(newTitle);
+    
+    if (desounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Only save if title is not empty (backend requires min_length=1)
+    if (newTitle.trim().length > 0) {
+      debounceRef.current = setTimeout(() => {
+        onUpdate({ ...task, title: newTitle });
+      }, 600);
+    }
+  };
+
+  const handleBlur = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    
+    // Only save if title is not empty and different
+    if (localTitle.trim().length > 0 && localTitle !== task.title) {
+      onUpdate({ ...task, title: localTitle });
+    } else if (localTitle.trim().length === 0) {
+      // Revert to original title if empty
+      setLocalTitle(task.title);
+    }
+    
+    // Mark editing as done after a short delay to allow the update to complete
+    setTimeout(() => {
+      isEditingRef.current = false;
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <input 
+      ref={inputRef}
+      id={`task-input-${task.id}`}
+      type="text"
+      value={localTitle}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={onKeyDown}
+      onClick={(e) => e.stopPropagation()}
+      placeholder="Write a task name..."
+      autoComplete="off"
+      className={`w-full bg-transparent border border-transparent rounded px-2 -ml-2 py-1.5 -my-1 text-sm md:text-base font-semibold block transition-all placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none ${
+        task.status === Status.DONE 
+          ? 'text-slate-400 line-through' 
+          : 'text-slate-900'
+      }`}
+    />
+  );
+});
+
 export const TaskList: React.FC = () => {
+  const location = useLocation();
   const { user, tasks, projects, updateTask, addTask } = useApp();
   const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
@@ -22,6 +108,36 @@ export const TaskList: React.FC = () => {
   // State to track which task should be auto-focused (for new tasks)
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
 
+  // Handle navigation state from Dashboard
+  useEffect(() => {
+    const state = location.state as { 
+      selectedTaskId?: string; 
+      statusFilter?: Status | 'pending';
+      priorityFilter?: Priority;
+    } | null;
+    
+    if (state) {
+      if (state.selectedTaskId) {
+        setSelectedTaskId(state.selectedTaskId);
+        // Clear status filter to ensure the task is visible
+        setStatusFilter('All');
+      }
+      if (state.statusFilter) {
+        if (state.statusFilter === 'pending') {
+          // Show all non-done tasks
+          setStatusFilter('All');
+        } else {
+          setStatusFilter(state.statusFilter);
+        }
+      }
+      // Note: priorityFilter is not currently supported in the UI filters,
+      // but we can add it later if needed
+      
+      // Clear the location state after processing
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   // Derive the selected task from the latest tasks array
   const selectedTask = useMemo(() => 
     tasks.find(t => t.id === selectedTaskId) || null
@@ -31,6 +147,18 @@ export const TaskList: React.FC = () => {
     if (!user) return [];
     
     let result = tasks;
+
+    console.log('Filtering tasks:', {
+      totalTasks: tasks.length,
+      userId: user.id,
+      userIdType: typeof user.id,
+      filter,
+      sampleTask: tasks[0] ? {
+        assignee_id: tasks[0].assignee_id,
+        assignee_id_type: typeof tasks[0].assignee_id,
+        creator_id: tasks[0].creator_id
+      } : null
+    });
 
     // 1. Initial Source Filter
     if (filter === 'assigned_to_me') {
@@ -120,7 +248,7 @@ export const TaskList: React.FC = () => {
     updateTask({ ...task, status: newStatus });
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = useCallback(() => {
     if (!user) return;
     
     // Create a new blank task
@@ -142,30 +270,32 @@ export const TaskList: React.FC = () => {
     if (statusFilter !== 'All' && statusFilter !== Status.TODO) setStatusFilter('All');
     if (dateFilter !== 'all') setDateFilter('all');
     setSortBy('default'); 
-  };
+  }, [user, projectFilter, filter, statusFilter, dateFilter, addTask]);
 
-  const handleTitleKeyDown = (e: React.KeyboardEvent, taskId: string) => {
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleCreateTask();
     }
-  };
+  }, [handleCreateTask]);
 
   return (
-    <div className="relative h-full flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="relative h-full flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       
-      <div className="flex-1 flex flex-col space-y-4 relative z-10 p-6">
+      <div className={`flex-1 flex flex-col space-y-4 relative z-10 p-6 transition-all duration-300 ${
+        selectedTask ? 'md:mr-[600px]' : ''
+      }`}>
         
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">My Tasks</h1>
-            <p className="text-slate-500 text-sm mt-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">My Tasks</h1>
+            <p className="text-shadow-neutral-950 text-xs md:text-sm mt-1">
               {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} found
             </p>
           </div>
           
-          <Button 
+          <Button
             variant="primary" 
             className="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-4 py-2 transition-all shadow-sm hover:shadow-md"
             onClick={handleCreateTask}
@@ -177,18 +307,18 @@ export const TaskList: React.FC = () => {
 
         {/* Controls Bar */}
         <div className="sticky top-0 z-20">
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
+          <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 md:gap-3">
             
-            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto p-1 flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-2 w-full p-0.5 flex-wrap">
               {/* View Filter */}
-              <div className="relative group">
+              <div className="relative group flex-1 sm:flex-initial">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
                   <Filter size={16} />
                 </div>
                 <select 
                   value={filter}
                   onChange={(e) => setFilter(e.target.value as ViewFilter)}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="assigned_to_me">Assigned to me</option>
                   <option value="assigned_by_me">Assigned by me</option>
@@ -197,14 +327,14 @@ export const TaskList: React.FC = () => {
               </div>
 
               {/* Status Filter */}
-              <div className="relative group">
+              <div className="relative group flex-1 sm:flex-initial">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
                   <ListFilter size={16} />
                 </div>
                 <select 
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as Status | 'All')}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="All">All Statuses</option>
                   {Object.values(Status).map(s => (
@@ -215,14 +345,14 @@ export const TaskList: React.FC = () => {
               </div>
 
                {/* Date Filter */}
-               <div className="relative group">
+               <div className="relative group flex-1 sm:flex-initial">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
                   <Clock size={16} />
                 </div>
                 <select 
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="all">Any Date</option>
                   <option value="overdue">Overdue</option>
@@ -233,14 +363,14 @@ export const TaskList: React.FC = () => {
               </div>
 
               {/* Project Filter */}
-              <div className="relative group">
+              <div className="relative group flex-1 sm:flex-initial">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
                   <Layers size={16} />
                 </div>
                 <select 
                   value={projectFilter}
                   onChange={(e) => setProjectFilter(e.target.value)}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="all">All Projects</option>
                   {projects.map(p => (
@@ -251,16 +381,16 @@ export const TaskList: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto p-1">
+            <div className="flex flex-col sm:flex-row gap-2 w-full p-0.5">
               {/* Sort By Dropdown */}
-              <div className="relative group w-full sm:w-40">
+              <div className="relative group w-full sm:flex-1 md:w-40">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
                    <ArrowUpDown size={16} />
                 </div>
                 <select 
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 pr-10 py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="default">Default</option>
                   <option value="dueDate">Due Date</option>
@@ -270,13 +400,13 @@ export const TaskList: React.FC = () => {
               </div>
 
               {/* Search */}
-              <div className="relative group w-full sm:w-64">
+              <div className="relative group w-full sm:flex-1 md:w-64">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none transition-colors text-slate-500 group-focus-within:text-brand-600">
                   <Search size={16} />
                 </div>
                 <input 
                   type="text" 
-                  className="bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 p-2.5 transition-all outline-none placeholder-slate-500 shadow-sm" 
+                  className="bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-900 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 p-2 md:p-2.5 transition-all outline-none placeholder-slate-500 shadow-sm" 
                   placeholder="Search tasks..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -287,20 +417,20 @@ export const TaskList: React.FC = () => {
         </div>
 
         {/* Glass List View */}
-        <div className="flex-1 animate-slide-up pb-12" style={{ animationDelay: '0.2s' }}>
+        <div className="flex-1 animate-slide-up pb-6 md:pb-12" style={{ animationDelay: '0.2s' }}>
           
           {/* List Content */}
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {filteredTasks.length > 0 ? (
               filteredTasks.map((task, idx) => (
                 <div 
                   key={task.id} 
                   onClick={() => handleRowClick(task)}
-                  className="group relative grid grid-cols-12 gap-6 p-4 md:p-5 bg-white/60 backdrop-blur-md rounded-2xl border border-white/60 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 cursor-pointer items-center overflow-hidden"
+                  className="group relative grid grid-cols-12 gap-3 md:gap-6 p-4 md:p-5 bg-white/90 backdrop-blur-sm rounded-xl md:rounded-2xl border border-indigo-100/50 shadow-sm hover:shadow-lg hover:shadow-indigo-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer items-center overflow-hidden"
                   style={{ animationDelay: `${0.05 * idx}s` }}
                 >
                   {/* Hover Gradient Glow */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-brand-500/0 via-brand-500/5 to-brand-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   
                   {/* Selection Indicator */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-brand-500 transition-all duration-300 ${selectedTaskId === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
@@ -318,20 +448,10 @@ export const TaskList: React.FC = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       {/* Inline Editable Title */}
-                      <input 
-                        id={`task-input-${task.id}`}
-                        type="text"
-                        value={task.title}
-                        onChange={(e) => updateTask({...task, title: e.target.value})}
-                        onKeyDown={(e) => handleTitleKeyDown(e, task.id)}
-                        onClick={(e) => e.stopPropagation()} // Prevent opening panel when editing text
-                        placeholder="Write a task name..."
-                        autoComplete="off"
-                        className={`w-full bg-transparent border border-transparent rounded px-2 -ml-2 py-1 -my-1 text-sm font-bold block truncate transition-all placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none ${
-                            task.status === Status.DONE 
-                            ? 'text-slate-400 line-through' 
-                            : 'text-slate-800'
-                        }`}
+                      <TaskTitleInput 
+                        task={task}
+                        onUpdate={updateTask}
+                        onKeyDown={handleTitleKeyDown}
                       />
                       
                       <div className="flex items-center gap-2 mt-1 md:hidden">
@@ -383,7 +503,7 @@ export const TaskList: React.FC = () => {
                           }
                         </div>
                      </div>
-                     <span className="text-xs font-medium text-slate-600 truncate hidden lg:block group-hover:text-slate-900 transition-colors">{task.assignee_name}</span>
+                     <span className="text-xs pr-6 font-medium text-slate-600 truncate hidden lg:block group-hover:text-slate-900 transition-colors">{task.assignee_name}</span>
                   </div>
 
                   {/* Priority & Action */}
@@ -400,7 +520,7 @@ export const TaskList: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300/50">
+              <div className="flex flex-col items-center justify-center py-24 bg-white/80 backdrop-blur-sm rounded-3xl border border-dashed border-indigo-200/50">
                 <div className="bg-white p-6 rounded-full mb-4 shadow-lg animate-float">
                    <LayoutGrid size={40} className="text-brand-400" />
                 </div>

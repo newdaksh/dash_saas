@@ -1,12 +1,23 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context';
 import { Status, Priority, parseDate } from '../types';
 import { CheckCircle2, Clock, AlertCircle, BarChart3, Layers, ArrowUpRight, Calendar } from 'lucide-react';
 
-const StatCard = ({ label, value, icon: Icon, colorClass, bgGradient, delay }: any) => (
+interface StatCardProps {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  bgGradient: string;
+  delay: string;
+  onClick?: () => void;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, bgGradient, delay, onClick }) => (
   <div 
-    className="bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 group animate-slide-up"
+    className="bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 group animate-slide-up cursor-pointer"
     style={{ animationDelay: delay }}
+    onClick={onClick}
   >
     <div className="flex items-start justify-between mb-4">
       <div>
@@ -27,6 +38,7 @@ const StatCard = ({ label, value, icon: Icon, colorClass, bgGradient, delay }: a
 );
 
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { user, tasks, projects } = useApp();
 
   const stats = useMemo(() => {
@@ -75,6 +87,7 @@ export const Dashboard: React.FC = () => {
           icon={CheckCircle2} 
           bgGradient="bg-gradient-to-br from-green-400 to-green-600"
           delay="0.1s"
+          onClick={() => navigate('/tasks', { state: { statusFilter: Status.DONE } })}
         />
         <StatCard 
           label="Pending Tasks" 
@@ -82,6 +95,7 @@ export const Dashboard: React.FC = () => {
           icon={Clock} 
           bgGradient="bg-gradient-to-br from-blue-400 to-blue-600"
           delay="0.2s"
+          onClick={() => navigate('/tasks', { state: { statusFilter: 'pending' } })}
         />
         <StatCard 
           label="High Priority" 
@@ -89,6 +103,7 @@ export const Dashboard: React.FC = () => {
           icon={AlertCircle} 
           bgGradient="bg-gradient-to-br from-orange-400 to-orange-600"
           delay="0.3s"
+          onClick={() => navigate('/tasks', { state: { priorityFilter: Priority.HIGH } })}
         />
         <StatCard 
           label="Active Projects" 
@@ -96,6 +111,7 @@ export const Dashboard: React.FC = () => {
           icon={BarChart3} 
           bgGradient="bg-gradient-to-br from-purple-400 to-purple-600"
           delay="0.4s"
+          onClick={() => navigate('/projects')}
         />
       </div>
 
@@ -107,12 +123,21 @@ export const Dashboard: React.FC = () => {
               <Layers className="text-brand-500" size={24} />
               Recent Projects
             </h2>
-            <button className="text-brand-600 text-sm font-semibold hover:text-brand-700 hover:underline transition-colors">View All Projects</button>
+            <button 
+              className="text-brand-600 text-sm font-semibold hover:text-brand-700 hover:underline transition-colors"
+              onClick={() => navigate('/projects')}
+            >
+              View All Projects
+            </button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {projects.map((project, idx) => (
-               <div key={project.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 group cursor-pointer relative overflow-hidden">
+             {projects.slice(0, 4).map((project, idx) => (
+               <div 
+                 key={project.id} 
+                 className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 group cursor-pointer relative overflow-hidden"
+                 onClick={() => navigate('/projects', { state: { selectedProjectId: project.id } })}
+               >
                   <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br opacity-5 rounded-bl-full transition-opacity group-hover:opacity-10 ${
                     idx % 2 === 0 ? 'from-blue-500 to-cyan-500' : 'from-purple-500 to-pink-500'
                   }`} />
@@ -164,7 +189,11 @@ export const Dashboard: React.FC = () => {
               {tasks.filter(t => t.assignee_id === user.id && t.status !== Status.DONE).slice(0, 5).map(task => {
                 const dueDate = parseDate(task.due_date);
                 return (
-                  <div key={task.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                  <div 
+                    key={task.id} 
+                    className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/tasks', { state: { selectedTaskId: task.id } })}
+                  >
                     <div className={`mt-1 w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${
                       task.priority === Priority.HIGH ? 'bg-red-500 shadow-red-200' : 
                       task.priority === Priority.MEDIUM ? 'bg-orange-400 shadow-orange-200' : 'bg-blue-500 shadow-blue-200'
@@ -184,13 +213,16 @@ export const Dashboard: React.FC = () => {
                   </div>
                 );
               })}
-              {tasks.filter(t => t.assignee_id === user.id).length === 0 && (
+              {tasks.filter(t => t.assignee_id === user.id && t.status !== Status.DONE).length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   <p>No pending tasks.</p>
                 </div>
               )}
             </div>
-            <button className="w-full py-3 text-center text-sm font-semibold text-slate-500 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all mt-2">
+            <button 
+              className="w-full py-3 text-center text-sm font-semibold text-slate-500 hover:text-brand-600 hover:bg-slate-50 rounded-xl transition-all mt-2"
+              onClick={() => navigate('/tasks')}
+            >
               See All Tasks
             </button>
           </div>

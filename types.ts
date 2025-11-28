@@ -12,6 +12,9 @@ export enum Priority {
   HIGH = 'High'
 }
 
+// User types for the dual-portal system
+export type UserType = 'admin' | 'user';
+
 export interface User {
   id: string;
   name: string;
@@ -20,6 +23,7 @@ export interface User {
   avatar_url?: string;
   status: 'Active' | 'Invited';
   role: 'Admin' | 'Member' | 'Viewer';
+  user_type: UserType; // 'admin' for company admins, 'user' for individual users
   email_notifications?: boolean;
   push_notifications?: boolean;
   product_updates?: boolean;
@@ -27,6 +31,34 @@ export interface User {
   public_profile?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+// Invitation from company admin to user
+export interface Invitation {
+  id: string;
+  company_id: string;
+  company_name: string;
+  inviter_id: string;
+  inviter_name: string;
+  invitee_email: string;
+  invitee_id?: string;
+  role: 'Member' | 'Viewer';
+  status: 'Pending' | 'Accepted' | 'Declined';
+  message?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+// Notification for users
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'invitation' | 'task_assigned' | 'task_updated' | 'mention' | 'system';
+  title: string;
+  message: string;
+  data?: any; // Additional data like invitation_id, task_id, etc.
+  read: boolean;
+  created_at: string;
 }
 
 export interface Comment {

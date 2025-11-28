@@ -6,26 +6,43 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../api.config';
 
-// Token management
+// Token management - Using sessionStorage for per-window sessions
+// This allows different users to be logged in on different browser windows/tabs
 const TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_DATA_KEY = 'user_data';
 
 export const getAccessToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 };
 
 export const getRefreshToken = (): string | null => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return sessionStorage.getItem(REFRESH_TOKEN_KEY);
 };
 
 export const setTokens = (accessToken: string, refreshToken: string): void => {
-  localStorage.setItem(TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  sessionStorage.setItem(TOKEN_KEY, accessToken);
+  sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 };
 
 export const clearTokens = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(USER_DATA_KEY);
+};
+
+// User data persistence for session recovery
+export const setUserData = (userData: any): void => {
+  sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+};
+
+export const getUserData = (): any | null => {
+  const data = sessionStorage.getItem(USER_DATA_KEY);
+  return data ? JSON.parse(data) : null;
+};
+
+export const clearUserData = (): void => {
+  sessionStorage.removeItem(USER_DATA_KEY);
 };
 
 // Create axios instance
@@ -56,6 +73,13 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
+    // Don't intercept login/register requests - let them fail naturally
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || 
+                           originalRequest?.url?.includes('/auth/register');
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
     // If 401 and not already retried, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -74,15 +98,18 @@ apiClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return apiClient(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, clear tokens and redirect to login
+          // Refresh failed, clear tokens and redirect to appropriate login
           clearTokens();
-          window.location.href = '/#/login';
+          // Check if user was on user portal, redirect accordingly
+          const isUserPortal = window.location.hash.includes('/user');
+          window.location.href = isUserPortal ? '/#/user/login' : '/#/login';
           return Promise.reject(refreshError);
         }
       } else {
-        // No refresh token, redirect to login
+        // No refresh token, redirect to appropriate login
         clearTokens();
-        window.location.href = '/#/login';
+        const isUserPortal = window.location.hash.includes('/user');
+        window.location.href = isUserPortal ? '/#/user/login' : '/#/login';
       }
     }
     
@@ -147,7 +174,7 @@ export const userAPI = {
   },
 
   invite: async (email: string, role?: string) => {
-    const response = await apiClient.post(API_ENDPOINTS.USERS.INVITE, { email, role });
+    const response = await apiClient.post(API_ENDPOINTS.USERS.INVITE, { email, role: role || 'Member' });
     return response.data;
   },
 
@@ -304,6 +331,30 @@ export const dashboardAPI = {
 
   getRecentActivity: async () => {
     const response = await apiClient.get(`${API_BASE_URL}/api/v1/dashboard/recent-activity`);
+    return response.data;
+  },
+};
+
+// ==================== Invitation APIs ====================
+
+export const invitationAPI = {
+  getSent: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.INVITATIONS.SENT);
+    return response.data;
+  },
+
+  getReceived: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.INVITATIONS.RECEIVED);
+    return response.data;
+  },
+
+  respond: async (id: string, action: 'accept' | 'decline') => {
+    const response = await apiClient.post(API_ENDPOINTS.INVITATIONS.RESPOND(id), { action });
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.INVITATIONS.DELETE(id));
     return response.data;
   },
 };

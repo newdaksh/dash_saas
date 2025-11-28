@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, Mail, Shield, Building, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Camera } from 'lucide-react';
+import { X, Mail, Shield, Building, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Camera, LogIn, Lock, ExternalLink } from 'lucide-react';
 import { useApp } from '../context';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -13,8 +13,12 @@ interface UserPanelProps {
 }
 
 export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen, onClose }) => {
-  const { updateTeamMember, deleteTeamMember, user: currentUser } = useApp();
+  const { updateTeamMember, deleteTeamMember, user: currentUser, loginAsUser } = useApp();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   if (!selectedUser) return null;
 
@@ -22,6 +26,31 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
     deleteTeamMember(selectedUser.id);
     setIsDeleteConfirmOpen(false);
     onClose();
+  };
+
+  const handleLoginAsUser = async () => {
+    if (!selectedUser || !loginPassword) return;
+    
+    setIsLoggingIn(true);
+    setLoginError('');
+    
+    try {
+      await loginAsUser(selectedUser.email, loginPassword);
+      setIsLoginModalOpen(false);
+      setLoginPassword('');
+      onClose();
+    } catch (err: any) {
+      setLoginError(err.response?.data?.detail || 'Login failed. Please check your password.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const openInNewWindow = () => {
+    // Open a new window with the login page pre-filled with user email
+    const newWindow = window.open(window.location.origin + window.location.pathname + '#/login?email=' + encodeURIComponent(selectedUser.email), '_blank');
+    setIsLoginModalOpen(false);
+    setLoginPassword('');
   };
 
   const isSelf = currentUser?.id === selectedUser.id;
@@ -57,6 +86,69 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
             </div>
         )}
 
+        {/* Login as User Modal */}
+        {isLoginModalOpen && (
+            <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in">
+                <div className="max-w-sm w-full">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                        <LogIn size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2 text-center">Login as {selectedUser.name}</h3>
+                    <p className="text-slate-500 mb-6 text-center text-sm">Enter the password for <span className="font-semibold text-slate-800">{selectedUser.email}</span> to switch to this account.</p>
+                    
+                    {loginError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
+                            {loginError}
+                        </div>
+                    )}
+                    
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <Lock size={16} />
+                            </div>
+                            <input 
+                                type="password"
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="Enter password"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                onKeyDown={(e) => e.key === 'Enter' && handleLoginAsUser()}
+                            />
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => { setIsLoginModalOpen(false); setLoginPassword(''); setLoginError(''); }}
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                variant="primary" 
+                                onClick={handleLoginAsUser}
+                                disabled={isLoggingIn || !loginPassword}
+                                className="flex-1"
+                            >
+                                {isLoggingIn ? 'Logging in...' : 'Login'}
+                            </Button>
+                        </div>
+                        
+                        <div className="text-center">
+                            <button
+                                onClick={openInNewWindow}
+                                className="text-sm text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 mx-auto"
+                            >
+                                <ExternalLink size={14} />
+                                Open in new window
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-blue-50 bg-gradient-to-r from-blue-50 to-white">
           <div className="flex items-center gap-3">
@@ -75,6 +167,15 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
              </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isSelf && selectedUser.status === 'Active' && (
+                <button 
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="p-2 hover:bg-blue-50 hover:text-blue-600 rounded-full text-gray-400 transition-colors"
+                    title="Login as this user"
+                >
+                <LogIn size={20} />
+                </button>
+            )}
             {!isSelf && (
                 <button 
                     onClick={() => setIsDeleteConfirmOpen(true)}

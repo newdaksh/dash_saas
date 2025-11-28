@@ -66,6 +66,14 @@ export const API_ENDPOINTS = {
     BASE: `${API_BASE_URL}/api/v1/settings/`,
     PASSWORD: `${API_BASE_URL}/api/v1/settings/password`,
   },
+  
+  // Invitations
+  INVITATIONS: {
+    SENT: `${API_BASE_URL}/api/v1/invitations/sent`,
+    RECEIVED: `${API_BASE_URL}/api/v1/invitations/received`,
+    RESPOND: (id: string) => `${API_BASE_URL}/api/v1/invitations/${id}/respond`,
+    DELETE: (id: string) => `${API_BASE_URL}/api/v1/invitations/${id}`,
+  },
 };
 
 /**

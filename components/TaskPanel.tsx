@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Task, Status, Priority, Comment, User } from '../types';
 import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
@@ -17,6 +17,14 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
   const [commentText, setCommentText] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
+  
+  // Local state for fields being edited (to avoid immediate API calls)
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState<string | null>(null);
+  
+  // Debounce timers
+  const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const descriptionDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Memoized values - must be called before any conditional returns
   const currentProject = useMemo(() => {
@@ -49,8 +57,76 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     return () => { mounted = false; };
   }, [task?.id]);
 
+  // Reset editing states when task changes
+  useEffect(() => {
+    setEditingTitle(null);
+    setEditingDescription(null);
+  }, [task?.id]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (titleDebounceTimer.current) clearTimeout(titleDebounceTimer.current);
+      if (descriptionDebounceTimer.current) clearTimeout(descriptionDebounceTimer.current);
+    };
+  }, []);
+
   // Guard - AFTER all hooks
   if (!task || !user) return null;
+
+  const handleTitleChange = (newTitle: string) => {
+    // Update local state immediately for responsive UI
+    setEditingTitle(newTitle);
+    
+    // Clear existing timer
+    if (titleDebounceTimer.current) {
+      clearTimeout(titleDebounceTimer.current);
+    }
+    
+    // Set new timer to update after 500ms of no typing
+    titleDebounceTimer.current = setTimeout(() => {
+      updateTask({ ...task, title: newTitle });
+      setEditingTitle(null);
+    }, 500);
+  };
+
+  const handleTitleBlur = () => {
+    // On blur, immediately save if there's a pending change
+    if (titleDebounceTimer.current) {
+      clearTimeout(titleDebounceTimer.current);
+      if (editingTitle !== null && editingTitle !== task.title) {
+        updateTask({ ...task, title: editingTitle });
+      }
+      setEditingTitle(null);
+    }
+  };
+
+  const handleDescriptionChange = (newDescription: string) => {
+    // Update local state immediately for responsive UI
+    setEditingDescription(newDescription);
+    
+    // Clear existing timer
+    if (descriptionDebounceTimer.current) {
+      clearTimeout(descriptionDebounceTimer.current);
+    }
+    
+    // Set new timer to update after 800ms of no typing (longer for description)
+    descriptionDebounceTimer.current = setTimeout(() => {
+      updateTask({ ...task, description: newDescription });
+      setEditingDescription(null);
+    }, 800);
+  };
+
+  const handleDescriptionBlur = () => {
+    // On blur, immediately save if there's a pending change
+    if (descriptionDebounceTimer.current) {
+      clearTimeout(descriptionDebounceTimer.current);
+      if (editingDescription !== null && editingDescription !== task.description) {
+        updateTask({ ...task, description: editingDescription });
+      }
+      setEditingDescription(null);
+    }
+  };
 
   const handleStatusChange = () => {
     const nextStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
@@ -196,8 +272,9 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           {/* Title Input */}
           <input 
             type="text"
-            value={task.title}
-            onChange={(e) => updateTask({ ...task, title: e.target.value })}
+            value={editingTitle !== null ? editingTitle : task.title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            onBlur={handleTitleBlur}
             className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
             placeholder="Task Title"
           />
@@ -349,8 +426,9 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           <div className="mb-8 relative">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
              <textarea
-               value={task.description}
-               onChange={(e) => updateTask({ ...task, description: e.target.value })}
+               value={editingDescription !== null ? editingDescription : task.description}
+               onChange={(e) => handleDescriptionChange(e.target.value)}
+               onBlur={handleDescriptionBlur}
                className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
                rows={6}
                placeholder="Add a description..."

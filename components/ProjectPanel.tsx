@@ -265,8 +265,8 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                          <p className={`text-sm font-semibold truncate group-hover:text-purple-700 transition-colors ${task.status === Status.DONE ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{task.title}</p>
                          <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                               <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">{task.assigneeName.charAt(0)}</div>
-                               {task.assigneeName}
+                               <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">{task.assignee_name?.charAt(0)}</div>
+                               {task.assignee_name}
                             </span>
                             <span className={`text-[10px] px-1.5 rounded-full ${
                                 task.priority === Priority.HIGH ? 'bg-red-50 text-red-600' :
@@ -276,7 +276,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                          </div>
                       </div>
                       <div className="text-xs text-gray-400 font-medium whitespace-nowrap">
-                         {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : ''}
+                         {task.due_date ? new Date(task.due_date).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : ''}
                       </div>
                    </div>
                  ))

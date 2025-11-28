@@ -1,23 +1,26 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
-import { UserPlus, Search, Mail, Shield, User as UserIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Search, Mail, Shield, User as UserIcon, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { InviteUserModal } from '../components/InviteUserModal';
 import { UserPanel } from '../components/UserPanel';
 
 export const UserList: React.FC = () => {
-  const { users } = useApp();
+  const { users, invitations, revokeInvitation } = useApp();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const activeUsers = users.filter(u => u.status === 'Active' && 
     (u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
   );
   
-  const invitedUsers = users.filter(u => u.status === 'Invited' &&
-    (u.email.toLowerCase().includes(search.toLowerCase()))
+  // Filter pending invitations from the invitations array
+  const pendingInvitations = invitations.filter(inv => 
+    inv.status === 'Pending' &&
+    inv.invitee_email.toLowerCase().includes(search.toLowerCase())
   );
 
   const selectedUser = useMemo(() => users.find(u => u.id === selectedUserId) || null, [users, selectedUserId]);
@@ -114,20 +117,19 @@ export const UserList: React.FC = () => {
         </div>
 
         {/* Pending Invitations Grid */}
-        {invitedUsers.length > 0 && (
+        {pendingInvitations.length > 0 && (
              <div className="space-y-4 animate-slide-up" style={{ animationDelay: '0.3s' }}>
                 <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2 mt-4">
                     <Clock size={20} className="text-amber-500" />
                     Pending Invitations
-                    <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{invitedUsers.length}</span>
+                    <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{pendingInvitations.length}</span>
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {invitedUsers.map(user => (
+                    {pendingInvitations.map(invitation => (
                         <div 
-                            key={user.id} 
-                            onClick={() => setSelectedUserId(user.id)}
-                            className="bg-slate-50/80 border border-slate-200 border-dashed rounded-2xl p-6 relative overflow-hidden cursor-pointer hover:bg-white hover:border-slate-300 transition-all"
+                            key={invitation.id} 
+                            className="bg-slate-50/80 border border-slate-200 border-dashed rounded-2xl p-6 relative overflow-hidden"
                         >
                             <div className="absolute top-0 right-0 p-3 opacity-10">
                                 <Mail size={64} />
@@ -145,11 +147,22 @@ export const UserList: React.FC = () => {
                             
                             <div className="bg-white rounded-lg p-3 border border-slate-100 mb-4">
                                 <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Sent To</p>
-                                <p className="text-sm font-medium text-slate-800 truncate">{user.email}</p>
+                                <p className="text-sm font-medium text-slate-800 truncate">{invitation.invitee_email}</p>
+                                <p className="text-xs text-slate-500 mt-1">Role: {invitation.role || 'Member'}</p>
                             </div>
                             
-                            <button className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline transition-colors">
-                                Revoke Invitation
+                            <button 
+                                onClick={() => {
+                                    if (confirm(`Are you sure you want to revoke the invitation for ${invitation.invitee_email}?`)) {
+                                        setRevokingId(invitation.id);
+                                        revokeInvitation(invitation.id).finally(() => setRevokingId(null));
+                                    }
+                                }}
+                                disabled={revokingId === invitation.id}
+                                className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600 hover:underline transition-colors disabled:opacity-50"
+                            >
+                                <Trash2 size={12} />
+                                {revokingId === invitation.id ? 'Revoking...' : 'Revoke Invitation'}
                             </button>
                         </div>
                     ))}

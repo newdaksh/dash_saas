@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../context';
 import { Project } from '../types';
 import { Search, Plus, Calendar, Layers, Building2, LayoutGrid, Check, ChevronDown, ArrowUpDown, User } from 'lucide-react';
@@ -7,6 +8,7 @@ import { ProjectPanel } from '../components/ProjectPanel';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 
 export const ProjectList: React.FC = () => {
+  const location = useLocation();
   const { user, projects, updateProject } = useApp();
   
   // Filter States
@@ -26,6 +28,17 @@ export const ProjectList: React.FC = () => {
   const [quickStatusEditId, setQuickStatusEditId] = useState<string | null>(null);
 
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle navigation state from Dashboard
+  useEffect(() => {
+    const state = location.state as { selectedProjectId?: string } | null;
+    
+    if (state?.selectedProjectId) {
+      setSelectedProjectId(state.selectedProjectId);
+      // Clear the location state after processing
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Close dropdowns on outside click
   useEffect(() => {
