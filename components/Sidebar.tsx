@@ -1,39 +1,44 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight, Users } from 'lucide-react';
+import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight, Users, ChevronLeft, Menu } from 'lucide-react';
 import { useApp } from '../context';
 
 export const Sidebar: React.FC = () => {
   const { user, logout } = useApp();
   const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
       isActive 
         ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25 translate-x-1' 
         : 'text-slate-400 hover:bg-slate-800/50 hover:text-white hover:translate-x-1'
-    }`;
+    } ${isCollapsed ? 'justify-center px-3' : ''}`;
 
   return (
-    <aside className="hidden md:flex flex-col w-72 bg-[#0F172A] border-r border-slate-800 h-screen sticky top-0 transition-all z-20">
+    <aside className={`hidden md:flex flex-col bg-[#0F172A] border-r border-slate-800 h-screen sticky top-0 transition-all duration-300 z-20 ${
+      isCollapsed ? 'w-20' : 'w-72'
+    }`}>
       {/* Brand Header */}
       <div className="p-6 pb-8">
-        <div className="flex items-center gap-3 text-white mb-8 group cursor-pointer" onClick={() => navigate('/')}>
+        <div className={`flex items-center gap-3 text-white mb-8 group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`} onClick={() => navigate('/')}>
           <div className="relative">
              <div className="absolute inset-0 bg-brand-500 blur-md opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
              <div className="bg-gradient-to-br from-brand-500 to-brand-700 p-2 rounded-xl relative z-10 shadow-inner border border-white/10">
                <Hexagon className="text-white fill-white" size={24} />
              </div>
           </div>
-          <div>
-            <span className="font-bold text-xl tracking-tight block leading-none">NexusTask</span>
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Workspace</span>
-          </div>
+          {!isCollapsed && (
+            <div>
+              <span className="font-bold text-xl tracking-tight block leading-none">NexusTask</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Workspace</span>
+            </div>
+          )}
         </div>
 
         {/* User Profile Card */}
-        {user && (
+        {user && !isCollapsed && (
            <div 
              onClick={() => navigate('/profile')}
              className="relative group cursor-pointer"
@@ -51,27 +56,39 @@ export const Sidebar: React.FC = () => {
              </div>
            </div>
         )}
+        
+        {/* Collapsed user avatar */}
+        {user && isCollapsed && (
+          <div 
+            onClick={() => navigate('/profile')}
+            className="flex justify-center cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-slate-800 overflow-hidden hover:ring-brand-500 transition-all">
+              {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
       <div className="px-4 flex-1">
-        <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Menu</p>
+        {!isCollapsed && <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Menu</p>}
         <nav className="space-y-2">
-          <NavLink to="/" className={navClass}>
-            <Home size={20} className="stroke-[1.5]" />
-            <span className="text-sm font-medium tracking-wide">Dashboard</span>
+          <NavLink to="/" className={navClass} title="Dashboard">
+            <Home size={20} className="stroke-[1.5] shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium tracking-wide">Dashboard</span>}
           </NavLink>
-          <NavLink to="/projects" className={navClass}>
-            <Layers size={20} className="stroke-[1.5]" />
-            <span className="text-sm font-medium tracking-wide">Projects</span>
+          <NavLink to="/projects" className={navClass} title="Projects">
+            <Layers size={20} className="stroke-[1.5] shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium tracking-wide">Projects</span>}
           </NavLink>
-          <NavLink to="/tasks" className={navClass}>
-            <CheckSquare size={20} className="stroke-[1.5]" />
-            <span className="text-sm font-medium tracking-wide">My Tasks</span>
+          <NavLink to="/tasks" className={navClass} title="My Tasks">
+            <CheckSquare size={20} className="stroke-[1.5] shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium tracking-wide">My Tasks</span>}
           </NavLink>
-          <NavLink to="/users" className={navClass}>
-            <Users size={20} className="stroke-[1.5]" />
-            <span className="text-sm font-medium tracking-wide">Users</span>
+          <NavLink to="/users" className={navClass} title="Users">
+            <Users size={20} className="stroke-[1.5] shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium tracking-wide">Users</span>}
           </NavLink>
         </nav>
       </div>
@@ -81,19 +98,37 @@ export const Sidebar: React.FC = () => {
          <nav className="space-y-2">
           <NavLink 
             to="/settings"
+            title="Settings"
             className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
               isActive ? 'text-white bg-slate-800' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
+            } ${isCollapsed ? 'justify-center px-3' : ''}`}
           >
-            <Settings size={20} className="stroke-[1.5] group-hover:rotate-90 transition-transform duration-500" />
-            <span className="text-sm font-medium">Settings</span>
+            <Settings size={20} className="stroke-[1.5] group-hover:rotate-90 transition-transform duration-500 shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
           </NavLink>
           <button 
             onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 group"
+            title="Logout"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 group ${isCollapsed ? 'justify-center px-3' : ''}`}
           >
-            <LogOut size={20} className="stroke-[1.5] group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium">Logout</span>
+            <LogOut size={20} className="stroke-[1.5] group-hover:-translate-x-1 transition-transform shrink-0" />
+            {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
+          </button>
+          
+          {/* Collapse Toggle Button */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 group ${isCollapsed ? 'justify-center px-3' : ''}`}
+          >
+            {isCollapsed ? (
+              <ChevronRight size={20} className="stroke-[1.5] shrink-0" />
+            ) : (
+              <>
+                <ChevronLeft size={20} className="stroke-[1.5] shrink-0" />
+                <span className="text-sm font-medium">Collapse</span>
+              </>
+            )}
           </button>
         </nav>
       </div>

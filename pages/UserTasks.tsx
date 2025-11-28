@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
-import { CheckSquare, Clock, Filter, Plus, GripVertical } from 'lucide-react';
-import { Button } from '../components/Button';
+import { Clock, Building2, Eye, GripVertical } from 'lucide-react';
 import { Task } from '../types';
+import { TaskPanel } from '../components/TaskPanel';
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done';
 
 export const UserTasks: React.FC = () => {
   const { user, tasks, updateTask } = useApp();
+  
+  // Selected task for viewing details
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -17,11 +20,20 @@ export const UserTasks: React.FC = () => {
   // Filter tasks assigned to this user
   const myTasks = tasks.filter(t => t.assignee_id === user?.id);
   
+  // Derive selected task from the latest tasks array
+  const selectedTask = useMemo(() => 
+    tasks.find(t => t.id === selectedTaskId) || null
+  , [tasks, selectedTaskId]);
+  
   // Group by status
   const todoTasks = myTasks.filter(t => t.status === 'To Do');
   const inProgressTasks = myTasks.filter(t => t.status === 'In Progress');
   const reviewTasks = myTasks.filter(t => t.status === 'Review');
   const doneTasks = myTasks.filter(t => t.status === 'Done');
+
+  // Check if user has tasks from multiple companies
+  const uniqueCompanies = new Set(myTasks.map(t => t.company_name).filter(Boolean));
+  const hasMultipleCompanies = uniqueCompanies.size > 1;
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     const task = myTasks.find(t => t.id === taskId);
@@ -37,7 +49,6 @@ export const UserTasks: React.FC = () => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', task.id);
     
-    // Add a slight delay to show the drag effect
     setTimeout(() => {
       (e.target as HTMLElement).style.opacity = '0.5';
     }, 0);
@@ -59,7 +70,6 @@ export const UserTasks: React.FC = () => {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only reset if we're leaving the column entirely
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
@@ -79,79 +89,6 @@ export const UserTasks: React.FC = () => {
     setDraggedTask(null);
     setDragOverColumn(null);
     setIsDragging(false);
-  };
-
-  const TaskCard = ({ task }: { task: Task }) => {
-    const isBeingDragged = draggedTask?.id === task.id;
-    
-    return (
-      <div 
-        draggable
-        onDragStart={(e) => handleDragStart(e, task)}
-        onDragEnd={handleDragEnd}
-        className={`p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group
-          ${isBeingDragged ? 'opacity-50 scale-95 ring-2 ring-purple-400' : 'hover:scale-[1.02]'}
-        `}
-      >
-        {/* Drag handle indicator */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1">
-            <h4 className="font-medium text-slate-800 group-hover:text-purple-600 transition-colors">
-              {task.title}
-            </h4>
-          </div>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400">
-            <GripVertical size={16} />
-          </div>
-        </div>
-        
-        {task.description && (
-          <p className="text-sm text-slate-500 mt-1 line-clamp-2">{task.description}</p>
-        )}
-        
-        <div className="flex items-center flex-wrap gap-2 mt-3">
-          {task.project_name && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-              {task.project_name}
-            </span>
-          )}
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            task.priority === 'High' ? 'bg-red-100 text-red-700' :
-            task.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
-            'bg-green-100 text-green-700'
-          }`}>
-            {task.priority}
-          </span>
-        </div>
-        
-        {task.due_date && (
-          <div className="flex items-center gap-1 mt-3 text-xs text-slate-500">
-            <Clock size={12} />
-            Due: {new Date(task.due_date).toLocaleDateString()}
-          </div>
-        )}
-        
-        {/* Quick status change buttons */}
-        <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
-          {(['To Do', 'In Progress', 'Review', 'Done'] as TaskStatus[]).map(status => (
-            <button
-              key={status}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStatusChange(task.id, status);
-              }}
-              className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-                task.status === status 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
   };
 
   const TaskColumn = ({ 
@@ -218,9 +155,91 @@ export const UserTasks: React.FC = () => {
             <p className="text-center text-slate-400 text-sm py-8">No tasks</p>
           ) : (
             <>
-              {tasks.map(task => (
-                <TaskCard key={task.id} task={task} />
-              ))}
+              {tasks.map(task => {
+                const isBeingDragged = draggedTask?.id === task.id;
+                return (
+                  <div 
+                    key={task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className={`p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group
+                      ${isBeingDragged ? 'opacity-50 scale-95 ring-2 ring-purple-400' : 'hover:scale-[1.02]'}
+                    `}
+                  >
+                    {/* Header with view indicator */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-slate-800 group-hover:text-purple-600 transition-colors">
+                          {task.title}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-purple-500">
+                          <Eye size={16} />
+                        </span>
+                        <span className="text-slate-400">
+                          <GripVertical size={16} />
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {task.description && (
+                      <p className="text-sm text-slate-500 mt-1 line-clamp-2">{task.description}</p>
+                    )}
+                    
+                    <div className="flex items-center flex-wrap gap-2 mt-3">
+                      {/* Company name tag - always shows for clarity, especially when multiple companies */}
+                      {task.company_name && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1 font-medium">
+                          <Building2 size={10} />
+                          {task.company_name}
+                        </span>
+                      )}
+                      {task.project_name && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                          {task.project_name}
+                        </span>
+                      )}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        task.priority === 'High' ? 'bg-red-100 text-red-700' :
+                        task.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {task.priority}
+                      </span>
+                    </div>
+                    
+                    {task.due_date && (
+                      <div className="flex items-center gap-1 mt-3 text-xs text-slate-500">
+                        <Clock size={12} />
+                        Due: {new Date(task.due_date).toLocaleDateString()}
+                      </div>
+                    )}
+                    
+                    {/* Quick status change buttons - still enabled for users */}
+                    <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
+                      {(['To Do', 'In Progress', 'Review', 'Done'] as TaskStatus[]).map(statusOption => (
+                        <button
+                          key={statusOption}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(task.id, statusOption);
+                          }}
+                          className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                            task.status === statusOption 
+                              ? 'bg-purple-600 text-white' 
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {statusOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
               
               {/* Show drop indicator at end of non-empty columns */}
               {isDragging && tasks.length > 0 && canDrop && isDropTarget && (
@@ -237,7 +256,9 @@ export const UserTasks: React.FC = () => {
 
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1">
+      <div className={`flex-1 flex flex-col space-y-6 relative z-10 p-1 transition-all duration-300 ${
+        selectedTask ? 'md:mr-[600px]' : ''
+      }`}>
         
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">
@@ -246,16 +267,21 @@ export const UserTasks: React.FC = () => {
               <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-purple-100/80 text-purple-700">
                 Personal
               </span>
+              {hasMultipleCompanies && (
+                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-blue-100/80 text-blue-700">
+                  {uniqueCompanies.size} Companies
+                </span>
+              )}
             </div>
             <h1 className="text-4xl font-black text-slate-800 tracking-tight drop-shadow-sm">
               My Tasks
             </h1>
             <p className="text-slate-600 font-medium mt-1">
-              Manage tasks assigned to you across all companies.
+              View and manage tasks assigned to you across all companies.
             </p>
             <p className="text-slate-500 text-sm mt-2 flex items-center gap-2">
               <GripVertical size={14} className="text-purple-500" />
-              <span>Drag and drop tasks to change their status</span>
+              <span>Drag and drop tasks or use buttons to change status</span>
             </p>
           </div>
         </div>
@@ -296,6 +322,14 @@ export const UserTasks: React.FC = () => {
           />
         </div>
       </div>
+      
+      {/* Task Detail Panel - View Only Mode */}
+      <TaskPanel 
+        task={selectedTask} 
+        isOpen={!!selectedTask} 
+        onClose={() => setSelectedTaskId(null)}
+        viewOnly={true}
+      />
     </div>
   );
 };

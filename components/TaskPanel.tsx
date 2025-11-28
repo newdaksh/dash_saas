@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Task, Status, Priority, Comment } from '../types';
-import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save } from 'lucide-react';
+import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save, Briefcase } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 import { commentAPI } from '../services/api';
@@ -10,9 +10,10 @@ interface TaskPanelProps {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
+  viewOnly?: boolean; // When true, only status changes are allowed
 }
 
-export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) => {
+export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, viewOnly = false }) => {
   const { user, updateTask, deleteTask, projects, users } = useApp();
   const [commentText, setCommentText] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -87,9 +88,27 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     setHasChanges(false);
   };
 
-  const handleStatusChange = () => {
+  // In view-only mode, status changes are saved immediately
+  const handleStatusChange = async () => {
     const nextStatus = localTask.status === Status.DONE ? Status.TODO : Status.DONE;
-    updateLocalTask({ status: nextStatus });
+    if (viewOnly) {
+      // Save immediately in view-only mode
+      await updateTask({ ...localTask, status: nextStatus });
+      setLocalTask(prev => prev ? { ...prev, status: nextStatus } : null);
+    } else {
+      updateLocalTask({ status: nextStatus });
+    }
+  };
+
+  // Handle status change from dropdown - also saves immediately in view-only mode
+  const handleStatusDropdownChange = async (newStatus: Status) => {
+    if (viewOnly) {
+      // Save immediately in view-only mode
+      await updateTask({ ...localTask, status: newStatus });
+      setLocalTask(prev => prev ? { ...prev, status: newStatus } : null);
+    } else {
+      updateLocalTask({ status: newStatus });
+    }
   };
 
   const handleDelete = () => {
@@ -176,8 +195,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             {localTask.status === Status.DONE ? 'Completed' : 'Mark Complete'}
           </Button>
           <div className="flex items-center gap-2">
-            {/* Save/Discard buttons when there are changes */}
-            {hasChanges && (
+            {/* Save/Discard buttons when there are changes - hidden in view-only mode */}
+            {!viewOnly && hasChanges && (
               <>
                 <Button 
                   variant="outline" 
@@ -197,13 +216,15 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                 </Button>
               </>
             )}
-            <button 
-                onClick={() => setIsDeleteConfirmOpen(true)}
-                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
-                title="Delete Task"
-            >
-              <Trash2 size={20} />
-            </button>
+            {!viewOnly && (
+              <button 
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
+                  title="Delete Task"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
             <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button 
               onClick={onClose}
@@ -216,8 +237,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           </div>
         </div>
 
-        {/* Unsaved Changes Banner */}
-        {hasChanges && (
+        {/* Unsaved Changes Banner - hidden in view-only mode */}
+        {!viewOnly && hasChanges && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-amber-800 text-sm">
             <AlertCircle size={16} />
             <span>You have unsaved changes</span>
@@ -238,40 +259,75 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             </div>
           )}
 
+          {/* View-Only Mode Banner */}
+          {viewOnly && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-blue-700 text-sm">
+              <AlertCircle size={16} />
+              <span>View-only mode. You can only change the task status.</span>
+            </div>
+          )}
+
           {/* Project Breadcrumb / Selector */}
           <div className="mb-4 flex items-center gap-2 group">
             <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
-            <div className="relative">
-              <select 
-                value={localTask.project_id || ''} 
-                onChange={handleProjectChange}
-                className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
-                aria-label="Select project"
-              >
-                <option value="" className="bg-white text-slate-700">No Project</option>
-                {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
-              </select>
-              <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
-            </div>
+            {viewOnly ? (
+              <span className="text-sm text-brand-600 font-medium pl-1">
+                {localTask.project_name || 'No Project'}
+              </span>
+            ) : (
+              <div className="relative">
+                <select 
+                  value={localTask.project_id || ''} 
+                  onChange={handleProjectChange}
+                  className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
+                  aria-label="Select project"
+                >
+                  <option value="" className="bg-white text-slate-700">No Project</option>
+                  {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
+                </select>
+                <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
+              </div>
+            )}
           </div>
 
-          {/* Title Input */}
-          <input 
-            type="text"
-            value={localTask.title}
-            onChange={(e) => updateLocalTask({ title: e.target.value })}
-            className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
-            placeholder="Task Title"
-          />
+          {/* Title Input - read-only in view mode */}
+          {viewOnly ? (
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 leading-tight">
+              {localTask.title}
+            </h2>
+          ) : (
+            <input 
+              type="text"
+              value={localTask.title}
+              onChange={(e) => updateLocalTask({ title: e.target.value })}
+              className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
+              placeholder="Task Title"
+            />
+          )}
 
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
             
-            {/* Assignee */}
+            {/* Company - shows which company this task belongs to */}
+            {localTask.company_name && (
+              <div className="flex flex-col gap-1 col-span-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
+                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
+                    <Briefcase size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-purple-700">{localTask.company_name}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Assignee - read-only in view mode */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
                 <div className="relative group">
-                    <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div className={`flex items-center gap-2 p-1 -ml-1 rounded-md transition-colors ${!viewOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
                         <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
                     {localTask.assignee_avatar ? (
                       <img src={localTask.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
@@ -282,84 +338,102 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                         <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
                       {localTask.assignee_name}
-                            <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
+                            {!viewOnly && <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />}
                         </span>
                         </div>
                     </div>
-                    {/* Invisible select overlay for interaction */}
-                    <select
-                      value={localTask.assignee_id}
-                      onChange={handleAssigneeChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
-                      aria-label="Select assignee"
-                    >
-                        <optgroup label="Team Members" className="bg-white text-slate-900">
-                            {users.map(u => (
-                                <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
-                            ))}
-                        </optgroup>
-                    </select>
+                    {/* Invisible select overlay for interaction - disabled in view mode */}
+                    {!viewOnly && (
+                      <select
+                        value={localTask.assignee_id}
+                        onChange={handleAssigneeChange}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                        aria-label="Select assignee"
+                      >
+                          <optgroup label="Team Members" className="bg-white text-slate-900">
+                              {users.map(u => (
+                                  <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
+                              ))}
+                          </optgroup>
+                      </select>
+                    )}
                 </div>
             </div>
 
-            {/* Due Date Input */}
+            {/* Due Date Input - read-only in view mode */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
-              <div className="flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group hover:bg-slate-50 rounded transition-colors cursor-pointer relative">
+              <div className={`flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group rounded transition-colors relative ${!viewOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
                  <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${
                    !localTask.due_date ? 'bg-gray-100 text-gray-400' :
                    isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
                  }`}>
                    <Calendar size={16} />
                  </div>
-                 {/* Native date picker with styling */}
-                 <input 
-                   type="date"
-                   value={dateInputValue}
-                   onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
-                   className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
-                   title="Select due date"
-                   placeholder="Select due date"
-                 />
+                 {/* Native date picker with styling - read-only in view mode */}
+                 {viewOnly ? (
+                   <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}>
+                     {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : 'No due date'}
+                   </span>
+                 ) : (
+                   <input 
+                     type="date"
+                     value={dateInputValue}
+                     onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
+                     className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
+                     title="Select due date"
+                     placeholder="Select due date"
+                   />
+                 )}
               </div>
             </div>
 
-            {/* Priority Selector */}
+            {/* Priority Selector - read-only in view mode */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Priority</span>
               <div className="flex items-center gap-2 p-1 -ml-1">
-                <div className="relative">
-                  <select
-                    value={localTask.priority}
-                    onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
-                    className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${
-                      localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
-                      localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
-                      'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                    }`}
-                    aria-label="Select priority"
-                  >
-                    {Object.values(Priority).map(p => (
-                      <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
-                     localTask.priority === Priority.HIGH ? 'text-red-700' :
-                     localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
-                     'text-blue-700'
-                  }`} />
-                </div>
+                {viewOnly ? (
+                  <span className={`pl-3 pr-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${
+                    localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
+                    localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                    'bg-blue-50 text-blue-700 border-blue-200'
+                  }`}>
+                    {localTask.priority}
+                  </span>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={localTask.priority}
+                      onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
+                      className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${
+                        localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                        localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
+                        'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                      }`}
+                      aria-label="Select priority"
+                    >
+                      {Object.values(Priority).map(p => (
+                        <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
+                       localTask.priority === Priority.HIGH ? 'text-red-700' :
+                       localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
+                       'text-blue-700'
+                    }`} />
+                  </div>
+                )}
               </div>
             </div>
 
-             {/* Status Selector */}
+             {/* Status Selector - always enabled (users can change status) */}
              <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Status</span>
               <div className="flex items-center gap-2 p-1 -ml-1">
                  <div className="relative w-full">
                     <select
                       value={localTask.status}
-                      onChange={(e) => updateLocalTask({ status: e.target.value as Status })}
+                      onChange={(e) => handleStatusDropdownChange(e.target.value as Status)}
                       className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
                       aria-label="Select status"
                     >
@@ -405,16 +479,22 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
 
           </div>
 
-          {/* Description Textarea */}
+          {/* Description Textarea - read-only in view mode */}
           <div className="mb-8 relative">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
-             <textarea
-               value={localTask.description}
-               onChange={(e) => updateLocalTask({ description: e.target.value })}
-               className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
-               rows={6}
-               placeholder="Add a description..."
-             />
+             {viewOnly ? (
+               <div className="w-full text-gray-700 text-base leading-relaxed bg-gray-50 border border-slate-200 rounded-md p-3 min-h-[150px]">
+                 {localTask.description || <span className="text-gray-400 italic">No description provided</span>}
+               </div>
+             ) : (
+               <textarea
+                 value={localTask.description}
+                 onChange={(e) => updateLocalTask({ description: e.target.value })}
+                 className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
+                 rows={6}
+                 placeholder="Add a description..."
+               />
+             )}
           </div>
 
           <div className="h-px bg-gray-200 w-full mb-8"></div>

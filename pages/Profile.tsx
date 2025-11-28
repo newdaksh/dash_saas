@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { User, Mail, Building, Camera, Save } from 'lucide-react';
+import { User, Mail, Building, Camera, Save, Building2 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user, updateUser } = useApp();
@@ -60,12 +60,41 @@ export const Profile: React.FC = () => {
             </div>
             
             <h2 className="text-xl font-bold text-slate-800">{user.name}</h2>
-            <p className="text-slate-500 text-sm mb-6">{user.company_name}</p>
+            <div className="text-slate-500 text-sm mb-6">
+              {user.company_names && user.company_names.length > 0 ? (
+                <div className="flex flex-wrap gap-1 justify-center mt-2">
+                  {user.company_names.map((company, index) => (
+                    <span 
+                      key={index}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        company === user.current_company_name
+                          ? 'bg-brand-100 text-brand-700 border border-brand-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      <Building2 size={10} className="mr-1" />
+                      {company}
+                      {company === user.current_company_name && (
+                        <span className="ml-1 text-brand-500">•</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span>{user.company_name || 'Individual'}</span>
+              )}
+            </div>
 
             <div className="w-full mt-auto pt-6 border-t border-slate-50">
                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Account Type</div>
-               <span className="inline-block px-3 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-bold border border-brand-100">
-                  Workspace Admin
+               <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
+                  user.role === 'Admin' 
+                    ? 'bg-purple-50 text-purple-700 border-purple-100' 
+                    : user.role === 'Member'
+                    ? 'bg-blue-50 text-blue-700 border-blue-100'
+                    : 'bg-slate-50 text-slate-700 border-slate-100'
+               }`}>
+                  {user.role === 'Admin' ? 'Workspace Admin' : user.role}
                </span>
             </div>
           </div>
@@ -90,13 +119,30 @@ export const Profile: React.FC = () => {
                    onChange={handleChange}
                    icon={<User size={16} />}
                  />
-                 <Input 
-                   label="Company Name" 
-                   name="company_name" 
-                   value={formData.company_name} 
-                   onChange={handleChange}
-                   icon={<Building size={16} />}
-                 />
+                 <div className="space-y-1.5">
+                   <label className="text-sm font-medium text-slate-700">Companies</label>
+                   <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                     {user.company_names && user.company_names.length > 0 ? (
+                       <div className="flex flex-wrap gap-1">
+                         {user.company_names.map((company, index) => (
+                           <span 
+                             key={index}
+                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                               company === user.current_company_name
+                                 ? 'bg-brand-100 text-brand-700'
+                                 : 'bg-slate-200 text-slate-600'
+                             }`}
+                           >
+                             {company}
+                           </span>
+                         ))}
+                       </div>
+                     ) : (
+                       <span className="text-slate-500">{user.company_name || 'Individual'}</span>
+                     )}
+                   </div>
+                   <p className="text-xs text-slate-400">Companies are managed through invitations.</p>
+                 </div>
               </div>
 
               <Input 

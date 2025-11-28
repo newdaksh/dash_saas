@@ -19,7 +19,11 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  company_name: string;
+  company_name: string;  // Comma-separated display string
+  company_names?: string[];  // Array of all company names
+  company_ids?: string[];  // Array of all company IDs
+  current_company_id?: string;  // Currently active company
+  current_company_name?: string;
   avatar_url?: string;
   status: 'Active' | 'Invited';
   role: 'Admin' | 'Member' | 'Viewer';
@@ -82,6 +86,8 @@ export interface Task {
   creator_id: string; // The person who assigned the task
   project_id?: string;
   project_name?: string;
+  company_id?: string;  // Company the task belongs to
+  company_name?: string;  // Company name for display
   created_at?: string;
   updated_at?: string;
   is_overdue?: boolean;

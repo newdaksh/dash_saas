@@ -338,8 +338,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshUserData = async () => {
     console.log('Refreshing user portal data...');
     try {
-      // Fetch real invitations and tasks from the API
-      const tasksPromise = taskAPI.getAll().catch(err => {
+      // Fetch tasks from all companies user belongs to
+      const tasksPromise = taskAPI.getAll({ all_companies: true }).catch(err => {
         console.error('Tasks API error:', err);
         return [];
       });
@@ -352,6 +352,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const [tasksData, receivedInvitations] = await Promise.all([tasksPromise, receivedInvitationsPromise]);
 
       if (Array.isArray(tasksData)) {
+        console.log('Setting tasks from all companies:', tasksData.length);
         setTasks(tasksData);
       }
 

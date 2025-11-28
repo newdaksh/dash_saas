@@ -268,13 +268,17 @@ export const taskAPI = {
     return response.data;
   },
 
-  getMyTasks: async () => {
-    const response = await apiClient.get(API_ENDPOINTS.TASKS.MY);
+  getMyTasks: async (allCompanies: boolean = true) => {
+    const response = await apiClient.get(API_ENDPOINTS.TASKS.MY, {
+      params: { all_companies: allCompanies }
+    });
     return response.data;
   },
 
-  getCreatedByMe: async () => {
-    const response = await apiClient.get(API_ENDPOINTS.TASKS.CREATED_BY_ME);
+  getCreatedByMe: async (allCompanies: boolean = true) => {
+    const response = await apiClient.get(API_ENDPOINTS.TASKS.CREATED_BY_ME, {
+      params: { all_companies: allCompanies }
+    });
     return response.data;
   },
 
@@ -303,8 +307,7 @@ export const commentAPI = {
   },
 
   create: async (taskId: string, content: string) => {
-    const response = await apiClient.post(`${API_BASE_URL}/api/v1/comments`, {
-      task_id: taskId,
+    const response = await apiClient.post(`${API_BASE_URL}/api/v1/tasks/${taskId}/comments`, {
       content,
     });
     return response.data;
