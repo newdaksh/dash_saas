@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../types';
-import { X, Mail, Shield, Building, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Camera, LogIn, Lock, ExternalLink } from 'lucide-react';
+import { X, Mail, Shield, Building, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Camera, LogIn, Lock, ExternalLink, AlertCircle, Save } from 'lucide-react';
 import { useApp } from '../context';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -19,8 +19,48 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  // Local form state for editing (completely independent of API calls)
+  const [localUser, setLocalUser] = useState<User | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  if (!selectedUser) return null;
+  // Initialize local state when selectedUser changes
+  useEffect(() => {
+    if (selectedUser) {
+      setLocalUser({ ...selectedUser });
+      setHasChanges(false);
+    }
+  }, [selectedUser]);
+
+  if (!selectedUser || !localUser) return null;
+
+  // Update local state without API call
+  const updateLocalUser = (updates: Partial<User>) => {
+    setLocalUser(prev => prev ? { ...prev, ...updates } : null);
+    setHasChanges(true);
+  };
+
+  // Save all changes to API
+  const handleSave = async () => {
+    if (!localUser || !hasChanges) return;
+    
+    setIsSaving(true);
+    try {
+      await updateTeamMember(localUser);
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to save user:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Discard changes
+  const handleDiscard = () => {
+    setLocalUser({ ...selectedUser });
+    setHasChanges(false);
+  };
 
   const handleDelete = () => {
     deleteTeamMember(selectedUser.id);
@@ -167,6 +207,27 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
              </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Save/Discard buttons when there are changes */}
+            {hasChanges && isSelf && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDiscard}
+                  className="text-sm"
+                >
+                  Discard
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Save size={16} />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
             {!isSelf && selectedUser.status === 'Active' && (
                 <button 
                     onClick={() => setIsLoginModalOpen(true)}
@@ -189,11 +250,20 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
             <button 
               onClick={onClose}
               className="p-2 hover:bg-white hover:shadow-sm rounded-full text-gray-400 hover:text-gray-600 transition-all"
+              title="Close"
             >
               <X size={24} />
             </button>
           </div>
         </div>
+
+        {/* Unsaved Changes Banner */}
+        {hasChanges && isSelf && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-amber-800 text-sm">
+            <AlertCircle size={16} />
+            <span>You have unsaved changes</span>
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -215,8 +285,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
           <div className="space-y-6">
              <Input 
                 label="Full Name"
-                value={selectedUser.name}
-                onChange={(e) => updateTeamMember({ ...selectedUser, name: e.target.value })}
+                value={localUser.name}
+                onChange={(e) => updateLocalUser({ name: e.target.value })}
                 icon={<UserIcon size={16} />}
                 disabled={!isSelf}
                 className={!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}
@@ -230,8 +300,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                  </div>
                  <input 
                     type="email"
-                    value={selectedUser.email}
-                    onChange={(e) => updateTeamMember({ ...selectedUser, email: e.target.value })}
+                    value={localUser.email}
+                    onChange={(e) => updateLocalUser({ email: e.target.value })}
                     className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
                     disabled={!isSelf}
                  />
@@ -246,10 +316,11 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                         <Shield size={16} />
                       </div>
                       <select
-                        value={selectedUser.role}
-                        onChange={(e) => updateTeamMember({ ...selectedUser, role: e.target.value as any })}
+                        value={localUser.role}
+                        onChange={(e) => updateLocalUser({ role: e.target.value as any })}
                         className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
                         disabled={!isSelf}
+                        aria-label="Select role"
                       >
                          <option value="Admin">Admin</option>
                          <option value="Member">Member</option>
@@ -265,10 +336,11 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                         <CheckCircle2 size={16} />
                       </div>
                       <select
-                        value={selectedUser.status}
-                        onChange={(e) => updateTeamMember({ ...selectedUser, status: e.target.value as any })}
+                        value={localUser.status}
+                        onChange={(e) => updateLocalUser({ status: e.target.value as any })}
                         className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
                         disabled={!isSelf}
+                        aria-label="Select status"
                       >
                          <option value="Active">Active</option>
                          <option value="Invited">Invited</option>
@@ -279,8 +351,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
 
              <Input 
                 label="Company"
-                value={selectedUser.company_name}
-                onChange={(e) => updateTeamMember({ ...selectedUser, company_name: e.target.value })}
+                value={localUser.company_name}
+                onChange={(e) => updateLocalUser({ company_name: e.target.value })}
                 icon={<Building size={16} />}
                 disabled={!isSelf}
                 className={!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}
@@ -294,8 +366,8 @@ export const UserPanel: React.FC<UserPanelProps> = ({ user: selectedUser, isOpen
                  </div>
                  <input 
                     type="text"
-                    value={selectedUser.avatar_url || ''}
-                    onChange={(e) => updateTeamMember({ ...selectedUser, avatar_url: e.target.value })}
+                    value={localUser.avatar_url || ''}
+                    onChange={(e) => updateLocalUser({ avatar_url: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                     className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pl-10 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isSelf ? "bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-300" : ""}`}
                     disabled={!isSelf}

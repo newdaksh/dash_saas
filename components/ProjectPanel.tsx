@@ -1,7 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Project, Status, Priority } from '../types';
-import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Calendar, Building2, Crown, ChevronDown, CheckCircle2, Circle, Trash2, AlertTriangle, AlertCircle, Save } from 'lucide-react';
 import { TaskPanel } from './TaskPanel';
 import { useApp } from '../context';
 import { Button } from './Button';
@@ -18,6 +18,19 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>('All');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  
+  // Local form state for editing (completely independent of API calls)
+  const [localProject, setLocalProject] = useState<Project | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Initialize local state when project changes
+  useEffect(() => {
+    if (project) {
+      setLocalProject({ ...project });
+      setHasChanges(false);
+    }
+  }, [project]);
 
   // Filter tasks belonging to this project
   const projectTasks = useMemo(() => {
@@ -37,7 +50,34 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId) || null, [tasks, selectedTaskId]);
 
-  if (!project || !user) return null;
+  if (!project || !user || !localProject) return null;
+
+  // Update local state without API call
+  const updateLocalProject = (updates: Partial<Project>) => {
+    setLocalProject(prev => prev ? { ...prev, ...updates } : null);
+    setHasChanges(true);
+  };
+
+  // Save all changes to API
+  const handleSave = async () => {
+    if (!localProject || !hasChanges) return;
+    
+    setIsSaving(true);
+    try {
+      await updateProject(localProject);
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to save project:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Discard changes
+  const handleDiscard = () => {
+    setLocalProject({ ...project });
+    setHasChanges(false);
+  };
 
   const projectStatusOptions = ['Active', 'On Hold', 'Archived'];
 
@@ -48,7 +88,7 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
   }
 
   // Safe date conversion
-  const dateInputValue = project.due_date ? new Date(project.due_date).toISOString().split('T')[0] : '';
+  const dateInputValue = localProject.due_date ? new Date(localProject.due_date).toISOString().split('T')[0] : '';
 
   return (
     <>
@@ -97,6 +137,27 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
              </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Save/Discard buttons when there are changes */}
+            {hasChanges && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDiscard}
+                  className="text-sm"
+                >
+                  Discard
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Save size={16} />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
             <button 
                 onClick={() => setIsDeleteConfirmOpen(true)}
                 className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
@@ -108,11 +169,20 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
             <button 
               onClick={onClose}
               className="p-2 hover:bg-white hover:shadow-sm rounded-full text-gray-400 hover:text-gray-600 transition-all"
+              title="Close"
             >
               <X size={24} />
             </button>
           </div>
         </div>
+
+        {/* Unsaved Changes Banner */}
+        {hasChanges && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-amber-800 text-sm">
+            <AlertCircle size={16} />
+            <span>You have unsaved changes</span>
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -122,8 +192,8 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Project Name</label>
              <input 
                 type="text"
-                value={project.name}
-                onChange={(e) => updateProject({ ...project, name: e.target.value })}
+                value={localProject.name}
+                onChange={(e) => updateLocalProject({ name: e.target.value })}
                 className="text-3xl font-black text-gray-900 leading-tight w-full bg-transparent border-b-2 border-transparent hover:border-gray-100 focus:border-purple-500 p-0 pb-2 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors rounded-none"
              />
           </div>
@@ -136,13 +206,14 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</span>
               <div className="relative">
                 <select
-                    value={project.status}
-                    onChange={(e) => updateProject({ ...project, status: e.target.value as any })}
+                    value={localProject.status}
+                    onChange={(e) => updateLocalProject({ status: e.target.value as any })}
                     className={`appearance-none w-full pl-3 pr-8 py-2 rounded-lg text-sm font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors uppercase tracking-wide bg-white shadow-sm ${
-                    project.status === 'Active' ? 'text-green-700 border-green-200' :
-                    project.status === 'On Hold' ? 'text-amber-700 border-amber-200' :
+                    localProject.status === 'Active' ? 'text-green-700 border-green-200' :
+                    localProject.status === 'On Hold' ? 'text-amber-700 border-amber-200' :
                     'text-slate-700 border-slate-200'
                     }`}
+                    aria-label="Select project status"
                 >
                     {projectStatusOptions.map(s => (
                     <option key={s} value={s}>{s}</option>
@@ -158,9 +229,10 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
               <div className="flex items-center gap-2">
                  <Building2 size={16} className="text-gray-400" />
                  <input 
-                   value={project.client_name}
-                   onChange={(e) => updateProject({...project, client_name: e.target.value})}
+                   value={localProject.client_name}
+                   onChange={(e) => updateLocalProject({ client_name: e.target.value })}
                    className="bg-white border border-gray-200 rounded-md px-2 py-1.5 text-sm font-medium text-gray-800 w-full focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                   placeholder="Client name"
                  />
               </div>
             </div>
@@ -169,11 +241,11 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Owner</span>
               <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus-within:ring-1 focus-within:ring-purple-500 focus-within:border-purple-500 transition-shadow">
-                 <Crown size={16} className="text-amber-500 flex-shrink-0" />
+                 <Crown size={16} className="text-amber-500 shrink-0" />
                  <input
                    type="text"
-                   value={project.owner_name}
-                   onChange={(e) => updateProject({ ...project, owner_name: e.target.value })}
+                   value={localProject.owner_name}
+                   onChange={(e) => updateLocalProject({ owner_name: e.target.value })}
                    className="text-sm font-medium text-gray-800 w-full focus:outline-none bg-transparent placeholder-gray-400"
                    placeholder="Assign Owner"
                  />
@@ -190,9 +262,10 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
                  <input 
                    type="date"
                    value={dateInputValue}
-                   onChange={(e) => updateProject({ ...project, due_date: e.target.value || null })}
+                   onChange={(e) => updateLocalProject({ due_date: e.target.value || null })}
                    className="bg-white border border-gray-200 rounded-md pl-8 pr-2 py-1.5 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-sm font-medium text-gray-800 cursor-pointer w-full"
                    onClick={(e) => e.currentTarget.showPicker()}
+                   title="Select deadline"
                  />
               </div>
             </div>
@@ -202,10 +275,11 @@ export const ProjectPanel: React.FC<ProjectPanelProps> = ({ project, isOpen, onC
           <div className="mb-10">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-3">Description</span>
              <textarea
-               value={project.description}
-               onChange={(e) => updateProject({ ...project, description: e.target.value })}
+               value={localProject.description}
+               onChange={(e) => updateLocalProject({ description: e.target.value })}
                className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 rounded-xl p-4 transition-all resize-none placeholder-gray-400 shadow-sm"
                rows={4}
+               placeholder="Add a project description..."
              />
           </div>
 

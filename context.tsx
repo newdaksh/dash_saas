@@ -613,8 +613,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setError(null);
       await projectAPI.delete(projectId);
       setProjects(prev => prev.filter(p => p.id !== projectId));
-      // Optionally delete associated tasks
-      setTasks(prev => prev.filter(t => t.project_id !== projectId));
+      // Update tasks that belonged to this project to have no project (they stay in DB)
+      setTasks(prev => prev.map(t => 
+        t.project_id === projectId 
+          ? { ...t, project_id: undefined, project_name: undefined } 
+          : t
+      ));
     } catch (err: any) {
       console.error('Failed to delete project:', err);
       setError(err.response?.data?.detail || 'Failed to delete project');

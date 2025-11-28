@@ -33,7 +33,7 @@ const TaskTitleInput: React.FC<{
     isEditingRef.current = true;
     setLocalTitle(newTitle);
     
-    if (desounceRef.current) {
+    if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
     

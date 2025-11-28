@@ -1,7 +1,7 @@
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Task, Status, Priority, Comment, User } from '../types';
-import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Task, Status, Priority, Comment } from '../types';
+import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
 import { commentAPI } from '../services/api';
@@ -18,31 +18,31 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   
-  // Local state for fields being edited (to avoid immediate API calls)
-  const [editingTitle, setEditingTitle] = useState<string | null>(null);
-  const [editingDescription, setEditingDescription] = useState<string | null>(null);
-  
-  // Debounce timers
-  const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const descriptionDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  // Local form state for editing (completely independent of API calls)
+  const [localTask, setLocalTask] = useState<Task | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Memoized values - must be called before any conditional returns
   const currentProject = useMemo(() => {
-    if (!task) return undefined;
-    return projects.find(p => p.id === task.project_id);
-  }, [projects, task?.project_id]);
+    if (!localTask) return undefined;
+    return projects.find(p => p.id === localTask.project_id);
+  }, [projects, localTask?.project_id]);
 
   const isOverdue = useMemo(() => {
-    if (!task) return false;
-    return !!(task.due_date && new Date(task.due_date) < new Date() && task.status !== Status.DONE);
-  }, [task?.due_date, task?.status]);
+    if (!localTask) return false;
+    return !!(localTask.due_date && new Date(localTask.due_date) < new Date() && localTask.status !== Status.DONE);
+  }, [localTask?.due_date, localTask?.status]);
 
-  const isAssignedToMe = useMemo(() => {
-    if (!task || !user) return false;
-    return user.id === task.assignee_id;
-  }, [user?.id, task?.assignee_id]);
+  // Initialize local state when task changes
+  useEffect(() => {
+    if (task) {
+      setLocalTask({ ...task });
+      setHasChanges(false);
+    }
+  }, [task]);
 
-  // Load comments when task changes - must be called before any conditional returns
+  // Load comments when task changes
   useEffect(() => {
     if (!task) return;
     let mounted = true;
@@ -57,80 +57,39 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     return () => { mounted = false; };
   }, [task?.id]);
 
-  // Reset editing states when task changes
-  useEffect(() => {
-    setEditingTitle(null);
-    setEditingDescription(null);
-  }, [task?.id]);
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (titleDebounceTimer.current) clearTimeout(titleDebounceTimer.current);
-      if (descriptionDebounceTimer.current) clearTimeout(descriptionDebounceTimer.current);
-    };
-  }, []);
-
   // Guard - AFTER all hooks
-  if (!task || !user) return null;
+  if (!task || !user || !localTask) return null;
 
-  const handleTitleChange = (newTitle: string) => {
-    // Update local state immediately for responsive UI
-    setEditingTitle(newTitle);
-    
-    // Clear existing timer
-    if (titleDebounceTimer.current) {
-      clearTimeout(titleDebounceTimer.current);
-    }
-    
-    // Set new timer to update after 500ms of no typing
-    titleDebounceTimer.current = setTimeout(() => {
-      updateTask({ ...task, title: newTitle });
-      setEditingTitle(null);
-    }, 500);
+  // Update local state without API call
+  const updateLocalTask = (updates: Partial<Task>) => {
+    setLocalTask(prev => prev ? { ...prev, ...updates } : null);
+    setHasChanges(true);
   };
 
-  const handleTitleBlur = () => {
-    // On blur, immediately save if there's a pending change
-    if (titleDebounceTimer.current) {
-      clearTimeout(titleDebounceTimer.current);
-      if (editingTitle !== null && editingTitle !== task.title) {
-        updateTask({ ...task, title: editingTitle });
-      }
-      setEditingTitle(null);
+  // Save all changes to API
+  const handleSave = async () => {
+    if (!localTask || !hasChanges) return;
+    
+    setIsSaving(true);
+    try {
+      await updateTask(localTask);
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDescriptionChange = (newDescription: string) => {
-    // Update local state immediately for responsive UI
-    setEditingDescription(newDescription);
-    
-    // Clear existing timer
-    if (descriptionDebounceTimer.current) {
-      clearTimeout(descriptionDebounceTimer.current);
-    }
-    
-    // Set new timer to update after 800ms of no typing (longer for description)
-    descriptionDebounceTimer.current = setTimeout(() => {
-      updateTask({ ...task, description: newDescription });
-      setEditingDescription(null);
-    }, 800);
-  };
-
-  const handleDescriptionBlur = () => {
-    // On blur, immediately save if there's a pending change
-    if (descriptionDebounceTimer.current) {
-      clearTimeout(descriptionDebounceTimer.current);
-      if (editingDescription !== null && editingDescription !== task.description) {
-        updateTask({ ...task, description: editingDescription });
-      }
-      setEditingDescription(null);
-    }
+  // Discard changes
+  const handleDiscard = () => {
+    setLocalTask({ ...task });
+    setHasChanges(false);
   };
 
   const handleStatusChange = () => {
-    const nextStatus = task.status === Status.DONE ? Status.TODO : Status.DONE;
-    updateTask({ ...task, status: nextStatus });
+    const nextStatus = localTask.status === Status.DONE ? Status.TODO : Status.DONE;
+    updateLocalTask({ status: nextStatus });
   };
 
   const handleDelete = () => {
@@ -151,8 +110,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const project_id = e.target.value || undefined;
     const project = projects.find(p => p.id === project_id);
-    updateTask({ 
-        ...task, 
+    updateLocalTask({ 
         project_id, 
         project_name: project?.name 
     });
@@ -162,8 +120,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     const userId = e.target.value;
     const selectedUser = users.find(u => u.id === userId);
     if (selectedUser) {
-      updateTask({
-        ...task,
+      updateLocalTask({
         assignee_id: selectedUser.id,
         assignee_name: selectedUser.name,
         assignee_avatar: selectedUser.avatar_url
@@ -171,8 +128,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
     }
   };
 
-    // Safe date conversion for input value (YYYY-MM-DD)
-    const dateInputValue = task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '';
+  // Safe date conversion for input value (YYYY-MM-DD)
+  const dateInputValue = localTask.due_date ? new Date(localTask.due_date).toISOString().split('T')[0] : '';
 
   return (
     <>
@@ -211,14 +168,35 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <Button 
-            variant={task.status === Status.DONE ? "ghost" : "outline"}
-            className={`flex items-center gap-2 ${task.status === Status.DONE ? 'text-green-600 bg-green-50' : ''}`}
+            variant={localTask.status === Status.DONE ? "ghost" : "outline"}
+            className={`flex items-center gap-2 ${localTask.status === Status.DONE ? 'text-green-600 bg-green-50' : ''}`}
             onClick={handleStatusChange}
           >
-            <CheckCircle2 size={18} className={task.status === Status.DONE ? 'fill-green-600 text-white' : ''} />
-            {task.status === Status.DONE ? 'Completed' : 'Mark Complete'}
+            <CheckCircle2 size={18} className={localTask.status === Status.DONE ? 'fill-green-600 text-white' : ''} />
+            {localTask.status === Status.DONE ? 'Completed' : 'Mark Complete'}
           </Button>
           <div className="flex items-center gap-2">
+            {/* Save/Discard buttons when there are changes */}
+            {hasChanges && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDiscard}
+                  className="text-sm"
+                >
+                  Discard
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Save size={16} />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
             <button 
                 onClick={() => setIsDeleteConfirmOpen(true)}
                 className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
@@ -238,6 +216,14 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           </div>
         </div>
 
+        {/* Unsaved Changes Banner */}
+        {hasChanges && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-amber-800 text-sm">
+            <AlertCircle size={16} />
+            <span>You have unsaved changes</span>
+          </div>
+        )}
+
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           
@@ -247,7 +233,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
               <AlertCircle className="text-red-600 mt-0.5 shrink-0" size={18} />
               <div>
                  <h4 className="text-sm font-bold text-red-900">Overdue</h4>
-                 <p className="text-sm text-red-700 mt-0.5">This task was due on {task.due_date ? new Date(task.due_date).toLocaleDateString() : ''}. Please update the status or due date.</p>
+                 <p className="text-sm text-red-700 mt-0.5">This task was due on {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : ''}. Please update the status or due date.</p>
               </div>
             </div>
           )}
@@ -257,7 +243,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
             <div className="relative">
               <select 
-                value={task.project_id || ''} 
+                value={localTask.project_id || ''} 
                 onChange={handleProjectChange}
                 className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
                 aria-label="Select project"
@@ -272,9 +258,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           {/* Title Input */}
           <input 
             type="text"
-            value={editingTitle !== null ? editingTitle : task.title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            onBlur={handleTitleBlur}
+            value={localTask.title}
+            onChange={(e) => updateLocalTask({ title: e.target.value })}
             className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
             placeholder="Task Title"
           />
@@ -285,26 +270,25 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
             {/* Assignee */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-                {
                 <div className="relative group">
                     <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
                         <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                    {task.assignee_avatar ? (
-                      <img src={task.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                    {localTask.assignee_avatar ? (
+                      <img src={localTask.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
                         ) : (
-                      (task.assignee_name || '').charAt(0)
+                      (localTask.assignee_name || '').charAt(0)
                         )}
                         </div>
                         <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      {task.assignee_name}
+                      {localTask.assignee_name}
                             <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
                         </span>
                         </div>
                     </div>
                     {/* Invisible select overlay for interaction */}
                     <select
-                      value={task.assignee_id}
+                      value={localTask.assignee_id}
                       onChange={handleAssigneeChange}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
                       aria-label="Select assignee"
@@ -316,7 +300,6 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                         </optgroup>
                     </select>
                 </div>
-                }
             </div>
 
             {/* Due Date Input */}
@@ -324,7 +307,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
               <div className="flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group hover:bg-slate-50 rounded transition-colors cursor-pointer relative">
                  <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${
-                   !task.dueDate ? 'bg-gray-100 text-gray-400' :
+                   !localTask.due_date ? 'bg-gray-100 text-gray-400' :
                    isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
                  }`}>
                    <Calendar size={16} />
@@ -333,7 +316,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                  <input 
                    type="date"
                    value={dateInputValue}
-                   onChange={(e) => updateTask({ ...task, due_date: e.target.value || null })}
+                   onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
                    className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
                    title="Select due date"
                    placeholder="Select due date"
@@ -347,11 +330,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
               <div className="flex items-center gap-2 p-1 -ml-1">
                 <div className="relative">
                   <select
-                    value={task.priority}
-                    onChange={(e) => updateTask({ ...task, priority: e.target.value as Priority })}
+                    value={localTask.priority}
+                    onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
                     className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${
-                      task.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
-                      task.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
+                      localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                      localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
                       'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                     }`}
                     aria-label="Select priority"
@@ -361,8 +344,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
                     ))}
                   </select>
                   <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
-                     task.priority === Priority.HIGH ? 'text-red-700' :
-                     task.priority === Priority.MEDIUM ? 'text-yellow-700' :
+                     localTask.priority === Priority.HIGH ? 'text-red-700' :
+                     localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
                      'text-blue-700'
                   }`} />
                 </div>
@@ -375,8 +358,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
               <div className="flex items-center gap-2 p-1 -ml-1">
                  <div className="relative w-full">
                     <select
-                      value={task.status}
-                      onChange={(e) => updateTask({ ...task, status: e.target.value as Status })}
+                      value={localTask.status}
+                      onChange={(e) => updateLocalTask({ status: e.target.value as Status })}
                       className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
                       aria-label="Select status"
                     >
@@ -426,9 +409,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose }) =
           <div className="mb-8 relative">
              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
              <textarea
-               value={editingDescription !== null ? editingDescription : task.description}
-               onChange={(e) => handleDescriptionChange(e.target.value)}
-               onBlur={handleDescriptionBlur}
+               value={localTask.description}
+               onChange={(e) => updateLocalTask({ description: e.target.value })}
                className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
                rows={6}
                placeholder="Add a description..."
