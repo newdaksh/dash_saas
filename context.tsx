@@ -21,7 +21,7 @@ interface AppContextType {
   userRegister: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   // Tasks
-  addTask: (task: Partial<Task>) => Promise<void>;
+  addTask: (task: Partial<Task>) => Promise<Task | undefined>;
   updateTask: (task: Task) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   // Projects
@@ -515,8 +515,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addTask = async (task: Partial<Task>) => {
-    if (!user) return;
+  const addTask = async (task: Partial<Task>): Promise<Task | undefined> => {
+    if (!user) return undefined;
     
     try {
       setError(null);
@@ -530,6 +530,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         project_id: task.project_id || null,
       });
       setTasks(prev => [newTask, ...prev]);
+      return newTask;
     } catch (err: any) {
       console.error('Failed to add task:', err);
       setError(err.response?.data?.detail || 'Failed to add task');

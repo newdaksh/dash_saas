@@ -248,11 +248,11 @@ export const TaskList: React.FC = () => {
     updateTask({ ...task, status: newStatus });
   };
 
-  const handleCreateTask = useCallback(() => {
+  const handleCreateTask = useCallback(async () => {
     if (!user) return;
     
     // Create a new blank task
-    const newTask: Partial<Task> = {
+    const taskData: Partial<Task> = {
       title: '',
       description: '',
       status: Status.TODO,
@@ -262,8 +262,10 @@ export const TaskList: React.FC = () => {
       project_id: projectFilter !== 'all' ? projectFilter : undefined
     };
 
-    addTask(newTask);
-    setFocusedTaskId(newTask.id);
+    const createdTask = await addTask(taskData);
+    if (createdTask) {
+      setFocusedTaskId(createdTask.id);
+    }
     
     // Reset filters that might hide the new task
     if (filter !== 'assigned_to_me') setFilter('assigned_to_me');
@@ -282,9 +284,7 @@ export const TaskList: React.FC = () => {
   return (
     <div className="relative h-full flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       
-      <div className={`flex-1 flex flex-col space-y-4 relative z-10 p-6 transition-all duration-300 ${
-        selectedTask ? 'md:mr-[600px]' : ''
-      }`}>
+      <div className="flex-1 flex flex-col space-y-4 relative z-10 p-6">
         
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

@@ -155,7 +155,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
       {/* Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-60 transition-opacity" 
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity" 
           onClick={onClose}
           aria-label="Close task panel backdrop"
           role="button"
@@ -164,7 +164,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
 
       {/* Slide-over Panel */}
       <div 
-        className={`fixed inset-y-0 right-0 z-70 w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 z-50 w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         aria-live="polite"
       >
         {/* Delete Confirmation Overlay */}
