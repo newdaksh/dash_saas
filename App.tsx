@@ -16,6 +16,7 @@ import { UserDashboard } from './pages/UserDashboard';
 import { UserTasks } from './pages/UserTasks';
 import { UserNotifications } from './pages/UserNotifications';
 import { UserCompanies } from './pages/UserCompanies';
+import { AdminNotifications } from './pages/AdminNotifications';
 
 // Admin Layout (Company Admin Dashboard)
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -113,6 +114,14 @@ const AppRoutes = () => {
         element={
           <AdminProtectedRoute>
             <Settings />
+          </AdminProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/notifications" 
+        element={
+          <AdminProtectedRoute>
+            <AdminNotifications />
           </AdminProtectedRoute>
         } 
       />

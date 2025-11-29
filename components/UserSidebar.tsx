@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, CheckSquare, Bell, Settings, LogOut, User, ChevronRight, ChevronLeft, Building2 } from 'lucide-react';
+import { Home, CheckSquare, Bell, Settings, LogOut, User, ChevronRight, ChevronLeft, Building2, AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../context';
 
 export const UserSidebar: React.FC = () => {
   const { user, logout, notifications } = useApp();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
   const unreadNotifications = notifications?.filter(n => !n.read).length || 0;
 
@@ -19,6 +20,7 @@ export const UserSidebar: React.FC = () => {
 
   const handleLogout = () => {
     logout();
+    setShowLogoutModal(false);
     navigate('/user/login');
   };
 
@@ -123,7 +125,7 @@ export const UserSidebar: React.FC = () => {
             {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
           </NavLink>
           <button 
-            onClick={handleLogout}
+            onClick={() => setShowLogoutModal(true)}
             title="Logout"
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 group ${isCollapsed ? 'justify-center px-3' : ''}`}
           >
@@ -148,6 +150,43 @@ export const UserSidebar: React.FC = () => {
           </button>
         </nav>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-scale-up">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="text-red-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Confirm Logout</h3>
+                  <p className="text-sm text-slate-500">Are you sure you want to log out?</p>
+                </div>
+              </div>
+              <p className="text-slate-600 mb-6">
+                You will be redirected to the login page and will need to sign in again to access your account.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                >
+                  <LogOut size={18} />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 };
