@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context';
-import { Bell, Building2, CheckSquare, Trash2, Check, CheckCircle2 } from 'lucide-react';
+import { Bell, Building2, CheckSquare, Trash2, Check, CheckCircle2, XCircle, UserCheck } from 'lucide-react';
 import { Button } from '../components/Button';
 
 export const UserNotifications: React.FC = () => {
@@ -8,10 +8,18 @@ export const UserNotifications: React.FC = () => {
   
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, data?: any) => {
     switch (type) {
       case 'invitation':
         return <Building2 size={20} className="text-purple-600" />;
+      case 'invitation_response':
+        // Show different icon based on accept/decline
+        if (data?.isDeclined) {
+          return <XCircle size={20} className="text-red-600" />;
+        }
+        return <UserCheck size={20} className="text-green-600" />;
+      case 'user_joined':
+        return <UserCheck size={20} className="text-green-600" />;
       case 'task_assigned':
         return <CheckSquare size={20} className="text-blue-600" />;
       case 'task_updated':
@@ -21,10 +29,18 @@ export const UserNotifications: React.FC = () => {
     }
   };
 
-  const getNotificationColor = (type: string) => {
+  const getNotificationColor = (type: string, data?: any) => {
     switch (type) {
       case 'invitation':
         return 'bg-purple-100';
+      case 'invitation_response':
+        // Red for declined, green for accepted
+        if (data?.isDeclined) {
+          return 'bg-red-100';
+        }
+        return 'bg-green-100';
+      case 'user_joined':
+        return 'bg-green-100';
       case 'task_assigned':
         return 'bg-blue-100';
       case 'task_updated':
@@ -91,19 +107,21 @@ export const UserNotifications: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${getNotificationColor(notification.type)}`}>
-                      {getNotificationIcon(notification.type)}
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${getNotificationColor(notification.type, notification.data)}`}>
+                      {getNotificationIcon(notification.type, notification.data)}
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h3 className={`font-medium ${notification.read ? 'text-slate-600' : 'text-slate-800'}`}>
-                            {notification.title}
+                            {notification.title || (notification.type === 'invitation_response' ? 
+                              (notification.data?.isDeclined ? 'Invitation Declined' : 'Invitation Accepted') : 
+                              'Notification')}
                           </h3>
                           <p className="text-sm text-slate-500 mt-1">{notification.message}</p>
                           <p className="text-xs text-slate-400 mt-2">
-                            {new Date(notification.created_at).toLocaleString()}
+                            {new Date(notification.created_at || notification.createdAt || Date.now()).toLocaleString()}
                           </p>
                         </div>
                         

@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, Task, Project, Invitation, Notification, UserType } from './types';
 import { authAPI, userAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
+import { websocketService, WebSocketEventType, WebSocketMessage } from './services/websocket';
 
 interface AppContextType {
   user: User | null;
@@ -39,8 +40,10 @@ interface AppContextType {
   revokeInvitation: (invitationId: string) => Promise<void>;
   // Notifications
   markNotificationRead: (notificationId: string) => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => void;
   markAllNotificationsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
+  clearNotifications: () => void;
   refreshData: () => Promise<void>;
 }
 
@@ -103,6 +106,190 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     initializeApp();
   }, []);
+
+  // WebSocket connection and event handling
+  useEffect(() => {
+    if (!user) {
+      // Disconnect WebSocket when user logs out
+      websocketService.disconnect();
+      return;
+    }
+
+    // Connect to WebSocket when user is logged in
+    websocketService.connect();
+
+    // Handle task events
+    const unsubTaskCreated = websocketService.on(WebSocketEventType.TASK_CREATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task created', message.payload);
+      setTasks(prev => {
+        // Avoid duplicates
+        if (prev.some(t => t.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+    });
+
+    const unsubTaskUpdated = websocketService.on(WebSocketEventType.TASK_UPDATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task updated', message.payload);
+      setTasks(prev => prev.map(task => 
+        task.id === message.payload.id ? { ...task, ...message.payload } : task
+      ));
+    });
+
+    const unsubTaskAssigned = websocketService.on(WebSocketEventType.TASK_ASSIGNED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task assigned to you', message.payload);
+      // Add notification for assigned task
+      const newNotification: Notification = {
+        id: `notif-${Date.now()}`,
+        type: 'task_assigned',
+        message: message.payload.message || `Task "${message.payload.title}" has been assigned to you`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Also update/add the task
+      setTasks(prev => {
+        const existingIndex = prev.findIndex(t => t.id === message.payload.id);
+        if (existingIndex >= 0) {
+          // Update existing task
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], ...message.payload };
+          return updated;
+        } else {
+          // Add new task
+          return [message.payload, ...prev];
+        }
+      });
+    });
+
+    const unsubTaskDeleted = websocketService.on(WebSocketEventType.TASK_DELETED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task deleted', message.payload);
+      setTasks(prev => prev.filter(task => task.id !== message.payload.task_id));
+    });
+
+    // Handle project events
+    const unsubProjectCreated = websocketService.on(WebSocketEventType.PROJECT_CREATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project created', message.payload);
+      setProjects(prev => {
+        // Avoid duplicates
+        if (prev.some(p => p.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+    });
+
+    const unsubProjectUpdated = websocketService.on(WebSocketEventType.PROJECT_UPDATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project updated', message.payload);
+      setProjects(prev => prev.map(project => 
+        project.id === message.payload.id ? { ...project, ...message.payload } : project
+      ));
+    });
+
+    const unsubProjectDeleted = websocketService.on(WebSocketEventType.PROJECT_DELETED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project deleted', message.payload);
+      setProjects(prev => prev.filter(project => project.id !== message.payload.project_id));
+    });
+
+    // Handle comment events
+    const unsubCommentAdded = websocketService.on(WebSocketEventType.COMMENT_ADDED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Comment added', message.payload);
+      // You could add a notification or update task comments here
+    });
+
+    // Handle invitation events (for users receiving invitations)
+    const unsubUserInvited = websocketService.on(WebSocketEventType.USER_INVITED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Invitation received', message.payload);
+      // Add the invitation to the list
+      setInvitations(prev => {
+        // Avoid duplicates
+        if (prev.some(inv => inv.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+      // Create a notification
+      const newNotification: Notification = {
+        id: `notif-inv-${Date.now()}`,
+        type: 'invitation',
+        message: message.payload.message || `You have been invited to join ${message.payload.company_name}`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+    });
+
+    // Handle invitation response events (for admins who sent invitations)
+    const unsubInvitationResponse = websocketService.on(WebSocketEventType.INVITATION_RESPONSE, (message: WebSocketMessage) => {
+      console.log('WebSocket: Invitation response received', message.payload);
+      const isAccepted = message.payload.action === 'accept';
+      const action = isAccepted ? 'accepted' : 'declined';
+      
+      // Update the invitation status in the list
+      setInvitations(prev => prev.map(inv => 
+        inv.id === message.payload.id ? { ...inv, status: message.payload.status } : inv
+      ));
+      
+      // Create a notification for the admin with appropriate styling info
+      const newNotification: Notification = {
+        id: `notif-inv-resp-${Date.now()}`,
+        type: 'invitation_response',
+        message: message.payload.message || `${message.payload.invitee_email} has ${action} your invitation`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: {
+          ...message.payload,
+          isAccepted: isAccepted,
+          isDeclined: !isAccepted
+        },
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Log for debugging
+      console.log(`Invitation ${action}:`, message.payload.invitee_email);
+    });
+
+    // Handle user joined (when a user accepts an invitation)
+    const unsubUserJoined = websocketService.on(WebSocketEventType.USER_JOINED, (message: WebSocketMessage) => {
+      console.log('WebSocket: User joined company', message.payload);
+      
+      // Refresh users list to show the new user
+      refreshData();
+      
+      // Create a notification for admin
+      const newNotification: Notification = {
+        id: `notif-user-joined-${Date.now()}`,
+        type: 'user_joined',
+        message: message.payload.message || `${message.payload.user_email} has joined the company`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: {
+          ...message.payload,
+          isAccepted: true
+        },
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+    });
+
+    // Handle connection established
+    const unsubConnected = websocketService.on(WebSocketEventType.CONNECTION_ESTABLISHED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Connection established', message.payload);
+    });
+
+    // Cleanup on unmount or user change
+    return () => {
+      unsubTaskCreated();
+      unsubTaskUpdated();
+      unsubTaskAssigned();
+      unsubTaskDeleted();
+      unsubProjectCreated();
+      unsubProjectUpdated();
+      unsubProjectDeleted();
+      unsubCommentAdded();
+      unsubUserInvited();
+      unsubInvitationResponse();
+      unsubUserJoined();
+      unsubConnected();
+    };
+  }, [user?.id]); // Re-run when user changes
 
   const refreshData = async () => {
     console.log('Starting refreshData...');
@@ -256,6 +443,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const logout = () => {
+    // Disconnect WebSocket before logging out
+    websocketService.disconnect();
     authAPI.logout();
     setUser(null);
     setUsers([]);
@@ -460,6 +649,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Sync version for local state management
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
+  };
+
+  // Clear all notifications
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
     
@@ -658,8 +859,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       declineInvitation,
       revokeInvitation,
       markNotificationRead,
+      markNotificationAsRead,
       markAllNotificationsRead,
       deleteNotification,
+      clearNotifications,
       refreshData,
     }}>
       {children}

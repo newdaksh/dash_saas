@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context';
-import { CheckSquare, Bell, Building2, Clock, CheckCircle2, Users, ArrowRight, Briefcase } from 'lucide-react';
+import { CheckSquare, Bell, Building2, Clock, CheckCircle2, Users, ArrowRight, Briefcase, XCircle, UserCheck } from 'lucide-react';
 import { Button } from '../components/Button';
 
 export const UserDashboard: React.FC = () => {
@@ -270,31 +270,43 @@ export const UserDashboard: React.FC = () => {
                   className={`p-4 rounded-xl border transition-colors cursor-pointer ${
                     notification.read 
                       ? 'bg-slate-50 border-slate-100' 
-                      : 'bg-amber-50 border-amber-100'
+                      : notification.type === 'invitation_response' && notification.data?.isDeclined
+                        ? 'bg-red-50 border-red-100'
+                        : 'bg-amber-50 border-amber-100'
                   }`}
                   onClick={() => markNotificationRead(notification.id)}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       notification.type === 'invitation' ? 'bg-purple-100 text-purple-600' :
+                      notification.type === 'invitation_response' ? 
+                        (notification.data?.isDeclined ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600') :
                       notification.type === 'task_assigned' ? 'bg-blue-100 text-blue-600' :
                       'bg-slate-100 text-slate-600'
                     }`}>
                       {notification.type === 'invitation' ? <Building2 size={18} /> :
+                       notification.type === 'invitation_response' ? 
+                        (notification.data?.isDeclined ? <XCircle size={18} /> : <UserCheck size={18} />) :
                        notification.type === 'task_assigned' ? <CheckSquare size={18} /> :
                        <Bell size={18} />}
                     </div>
                     <div className="flex-1">
                       <p className={`text-sm ${notification.read ? 'text-slate-600' : 'text-slate-800 font-medium'}`}>
-                        {notification.title}
+                        {notification.title || (notification.type === 'invitation_response' ? 
+                          (notification.data?.isDeclined ? 'Invitation Declined' : 'Invitation Accepted') : 
+                          'Notification')}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">{notification.message}</p>
                       <p className="text-xs text-slate-400 mt-2">
-                        {new Date(notification.created_at).toLocaleString()}
+                        {new Date(notification.created_at || notification.createdAt || Date.now()).toLocaleString()}
                       </p>
                     </div>
                     {!notification.read && (
-                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                      <div className={`w-2 h-2 rounded-full ${
+                        notification.type === 'invitation_response' && notification.data?.isDeclined 
+                          ? 'bg-red-500' 
+                          : 'bg-amber-500'
+                      }`}></div>
                     )}
                   </div>
                 </div>

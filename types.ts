@@ -56,13 +56,14 @@ export interface Invitation {
 // Notification for users
 export interface Notification {
   id: string;
-  user_id: string;
-  type: 'invitation' | 'task_assigned' | 'task_updated' | 'mention' | 'system';
-  title: string;
+  user_id?: string;
+  type: 'invitation' | 'invitation_response' | 'user_joined' | 'task_assigned' | 'task_updated' | 'mention' | 'system';
+  title?: string;
   message: string;
   data?: any; // Additional data like invitation_id, task_id, etc.
   read: boolean;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string; // Alternative field name
 }
 
 export interface Comment {

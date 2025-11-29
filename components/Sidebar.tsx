@@ -1,13 +1,41 @@
 
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight, Users, ChevronLeft, Menu } from 'lucide-react';
+import { Home, CheckSquare, Layers, Settings, LogOut, Hexagon, ChevronRight, Users, ChevronLeft, Menu, Bell, X, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { useApp } from '../context';
+import { Notification } from '../types';
 
 export const Sidebar: React.FC = () => {
-  const { user, logout } = useApp();
+  const { user, logout, notifications, markNotificationAsRead, clearNotifications } = useApp();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const getNotificationIcon = (notification: Notification) => {
+    if (notification.type === 'invitation_response' || notification.type === 'user_joined') {
+      const isAccepted = notification.data?.isAccepted || notification.data?.status === 'Accepted';
+      if (isAccepted) {
+        return <CheckCircle className="text-green-500" size={18} />;
+      } else {
+        return <XCircle className="text-red-500" size={18} />;
+      }
+    }
+    return <UserPlus className="text-brand-500" size={18} />;
+  };
+
+  const getNotificationStyle = (notification: Notification) => {
+    if (notification.type === 'invitation_response' || notification.type === 'user_joined') {
+      const isAccepted = notification.data?.isAccepted || notification.data?.status === 'Accepted';
+      if (isAccepted) {
+        return 'border-l-4 border-green-500 bg-green-50';
+      } else {
+        return 'border-l-4 border-red-500 bg-red-50';
+      }
+    }
+    return 'border-l-4 border-brand-500 bg-brand-50';
+  };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
@@ -90,6 +118,88 @@ export const Sidebar: React.FC = () => {
             <Users size={20} className="stroke-[1.5] shrink-0" />
             {!isCollapsed && <span className="text-sm font-medium tracking-wide">Users</span>}
           </NavLink>
+          
+          {/* Notifications Button */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              title="Notifications"
+              className={`w-full relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
+                showNotifications 
+                  ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25' 
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-3' : ''}`}
+            >
+              <Bell size={20} className="stroke-[1.5] shrink-0" />
+              {!isCollapsed && <span className="text-sm font-medium tracking-wide">Notifications</span>}
+              {unreadCount > 0 && (
+                <span className={`absolute ${isCollapsed ? 'top-1 right-1' : 'top-2 right-3'} w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse`}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            
+            {/* Notifications Dropdown */}
+            {showNotifications && (
+              <div className={`absolute ${isCollapsed ? 'left-16' : 'left-0'} top-12 z-50 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-96 overflow-hidden`}>
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                  <h3 className="font-semibold text-slate-800">Notifications</h3>
+                  <div className="flex items-center gap-2">
+                    {notifications.length > 0 && (
+                      <button 
+                        onClick={clearNotifications}
+                        className="text-xs text-slate-500 hover:text-red-500 transition-colors"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="text-slate-400 hover:text-slate-600"
+                      title="Close notifications"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-y-auto max-h-72">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-slate-400">
+                      <Bell size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.slice(0, 10).map((notification) => (
+                      <div 
+                        key={notification.id}
+                        onClick={() => markNotificationAsRead(notification.id)}
+                        className={`p-3 cursor-pointer transition-all hover:bg-slate-50 ${getNotificationStyle(notification)} ${
+                          !notification.read ? 'bg-opacity-100' : 'bg-opacity-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5">
+                            {getNotificationIcon(notification)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${!notification.read ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {new Date(notification.createdAt || notification.created_at || '').toLocaleString()}
+                            </p>
+                          </div>
+                          {!notification.read && (
+                            <div className="w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
 

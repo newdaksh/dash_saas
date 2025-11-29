@@ -6,6 +6,9 @@
 // Backend API Base URL
 export const API_BASE_URL = 'http://localhost:8000';
 
+// WebSocket URL (replace http with ws)
+export const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
+
 // API Endpoints
 export const API_ENDPOINTS = {
   // Authentication
@@ -73,6 +76,12 @@ export const API_ENDPOINTS = {
     RECEIVED: `${API_BASE_URL}/api/v1/invitations/received`,
     RESPOND: (id: string) => `${API_BASE_URL}/api/v1/invitations/${id}/respond`,
     DELETE: (id: string) => `${API_BASE_URL}/api/v1/invitations/${id}`,
+  },
+  
+  // WebSocket
+  WEBSOCKET: {
+    CONNECT: (token: string) => `${WS_BASE_URL}/api/v1/ws?token=${token}`,
+    STATUS: `${API_BASE_URL}/api/v1/ws/status`,
   },
 };
 
