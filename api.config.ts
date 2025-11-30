@@ -3,11 +3,11 @@
  * Base URL for all backend API calls
  */
 
-// Backend API Base URL
-export const API_BASE_URL = 'http://localhost:8000';
+// Backend API Base URL - Render deployment
+export const API_BASE_URL = 'https://nexus-backend-g0gm.onrender.com';
 
-// WebSocket URL (replace http with ws)
-export const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
+// WebSocket URL (wss for secure connection on Render)
+export const WS_BASE_URL = API_BASE_URL.replace('https', 'wss');
 
 // API Endpoints
 export const API_ENDPOINTS = {

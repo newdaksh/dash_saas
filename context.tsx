@@ -1,8 +1,18 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { User, Task, Project, Invitation, Notification, UserType } from './types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { User, Task, Project, Invitation, Notification, UserType, Comment } from './types';
 import { authAPI, userAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
 import { websocketService, WebSocketEventType, WebSocketMessage } from './services/websocket';
+
+// Comment event types for real-time updates
+export type CommentEventType = 'added' | 'deleted';
+export interface CommentEvent {
+  type: CommentEventType;
+  taskId: string;
+  comment?: Comment;
+  commentId?: string;
+}
+export type CommentEventHandler = (event: CommentEvent) => void;
 
 interface AppContextType {
   user: User | null;
@@ -45,6 +55,8 @@ interface AppContextType {
   deleteNotification: (notificationId: string) => Promise<void>;
   clearNotifications: () => void;
   refreshData: () => Promise<void>;
+  // Comment events
+  subscribeToCommentEvents: (handler: CommentEventHandler) => () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -58,6 +70,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Comment event handlers for real-time updates
+  const commentEventHandlers = useRef<Set<CommentEventHandler>>(new Set());
+  
+  const subscribeToCommentEvents = useCallback((handler: CommentEventHandler) => {
+    commentEventHandlers.current.add(handler);
+    return () => {
+      commentEventHandlers.current.delete(handler);
+    };
+  }, []);
+  
+  const emitCommentEvent = useCallback((event: CommentEvent) => {
+    commentEventHandlers.current.forEach(handler => {
+      try {
+        handler(event);
+      } catch (err) {
+        console.error('Error in comment event handler:', err);
+      }
+    });
+  }, []);
 
   // Load current user on mount if token exists
   useEffect(() => {
@@ -163,6 +195,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     });
 
+    const unsubTaskUnassigned = websocketService.on(WebSocketEventType.TASK_UNASSIGNED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task unassigned from you', message.payload);
+      // Add notification for unassigned task
+      const newNotification: Notification = {
+        id: `notif-unassign-${Date.now()}`,
+        type: 'task_unassigned',
+        message: message.payload.message || `Task "${message.payload.title}" has been reassigned`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Update the task with new assignee info (it will be filtered out in user views)
+      setTasks(prev => prev.map(task => 
+        task.id === message.payload.id ? { ...task, ...message.payload } : task
+      ));
+    });
+
     const unsubTaskDeleted = websocketService.on(WebSocketEventType.TASK_DELETED, (message: WebSocketMessage) => {
       console.log('WebSocket: Task deleted', message.payload);
       setTasks(prev => prev.filter(task => task.id !== message.payload.task_id));
@@ -193,7 +244,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Handle comment events
     const unsubCommentAdded = websocketService.on(WebSocketEventType.COMMENT_ADDED, (message: WebSocketMessage) => {
       console.log('WebSocket: Comment added', message.payload);
-      // You could add a notification or update task comments here
+      // Emit comment event for TaskPanel to handle
+      emitCommentEvent({
+        type: 'added',
+        taskId: message.payload.task_id,
+        comment: message.payload
+      });
+    });
+
+    const unsubCommentDeleted = websocketService.on(WebSocketEventType.COMMENT_DELETED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Comment deleted', message.payload);
+      // Emit comment event for TaskPanel to handle
+      emitCommentEvent({
+        type: 'deleted',
+        taskId: message.payload.task_id,
+        commentId: message.payload.comment_id
+      });
     });
 
     // Handle invitation events (for users receiving invitations)
@@ -279,17 +345,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubTaskCreated();
       unsubTaskUpdated();
       unsubTaskAssigned();
+      unsubTaskUnassigned();
       unsubTaskDeleted();
       unsubProjectCreated();
       unsubProjectUpdated();
       unsubProjectDeleted();
       unsubCommentAdded();
+      unsubCommentDeleted();
       unsubUserInvited();
       unsubInvitationResponse();
       unsubUserJoined();
       unsubConnected();
     };
-  }, [user?.id]); // Re-run when user changes
+  }, [user?.id, emitCommentEvent]); // Re-run when user changes
 
   const refreshData = async () => {
     console.log('Starting refreshData...');
@@ -864,6 +932,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       deleteNotification,
       clearNotifications,
       refreshData,
+      subscribeToCommentEvents,
     }}>
       {children}
     </AppContext.Provider>

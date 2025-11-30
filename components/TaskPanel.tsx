@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Task, Status, Priority, Comment } from '../types';
 import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save, Briefcase } from 'lucide-react';
 import { Button } from './Button';
-import { useApp } from '../context';
+import { useApp, CommentEvent } from '../context';
 import { commentAPI } from '../services/api';
 
 interface TaskPanelProps {
@@ -14,7 +14,7 @@ interface TaskPanelProps {
 }
 
 export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, viewOnly = false }) => {
-  const { user, updateTask, deleteTask, projects, users } = useApp();
+  const { user, updateTask, deleteTask, projects, users, subscribeToCommentEvents } = useApp();
   const [commentText, setCommentText] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -57,6 +57,29 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
     })();
     return () => { mounted = false; };
   }, [task?.id]);
+
+  // Subscribe to real-time comment events
+  useEffect(() => {
+    if (!task) return;
+    
+    const handleCommentEvent = (event: CommentEvent) => {
+      // Only handle events for the current task
+      if (event.taskId !== task.id) return;
+      
+      if (event.type === 'added' && event.comment) {
+        setComments(prev => {
+          // Avoid duplicates
+          if (prev.some(c => c.id === event.comment!.id)) return prev;
+          return [...prev, event.comment!];
+        });
+      } else if (event.type === 'deleted' && event.commentId) {
+        setComments(prev => prev.filter(c => c.id !== event.commentId));
+      }
+    };
+    
+    const unsubscribe = subscribeToCommentEvents(handleCommentEvent);
+    return unsubscribe;
+  }, [task?.id, subscribeToCommentEvents]);
 
   // Guard - AFTER all hooks
   if (!task || !user || !localTask) return null;

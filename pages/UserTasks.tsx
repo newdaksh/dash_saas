@@ -217,26 +217,6 @@ export const UserTasks: React.FC = () => {
                         Due: {new Date(task.due_date).toLocaleDateString()}
                       </div>
                     )}
-                    
-                    {/* Quick status change buttons - still enabled for users */}
-                    <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
-                      {(['To Do', 'In Progress', 'Review', 'Done'] as TaskStatus[]).map(statusOption => (
-                        <button
-                          key={statusOption}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(task.id, statusOption);
-                          }}
-                          className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-                            task.status === statusOption 
-                              ? 'bg-purple-600 text-white' 
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                        >
-                          {statusOption}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 );
               })}
