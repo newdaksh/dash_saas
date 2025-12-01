@@ -400,6 +400,14 @@ export const chatbotAPI = {
   },
 
   /**
+   * Notify chatbot about data changes in the dashboard
+   */
+  notifyChanges: async (changes: string[]) => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/chat/notify_changes`, { changes });
+    return response.data;
+  },
+
+  /**
    * Health check for chatbot service
    */
   healthCheck: async () => {

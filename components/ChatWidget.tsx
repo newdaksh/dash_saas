@@ -3,7 +3,7 @@
  * An integrated AI Task Assistant chat widget for the Dash SaaS dashboard.
  * Uses the LangGraph chatbot backend with the same authentication.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, 
@@ -16,11 +16,14 @@ import {
   Minimize2,
   Maximize2,
   Expand,
-  Shrink
+  Shrink,
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { chatbotAPI } from '../services/api';
+import websocketService, { WebSocketEventType, WebSocketMessage } from '../services/websocket';
 
 interface Message {
   role: 'user' | 'bot';
@@ -42,6 +45,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasDataChanges, setHasDataChanges] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'bot', 
@@ -85,6 +90,156 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     loadHistory();
   }, []);
 
+  // Listen for WebSocket events for real-time data changes
+  useEffect(() => {
+    const handleDataUpdate = (message: WebSocketMessage) => {
+      const changeDescription = getChangeDescription(message);
+      if (changeDescription) {
+        setHasDataChanges(true);
+        setPendingChanges(prev => {
+          // Keep only last 10 changes
+          const updated = [...prev, changeDescription].slice(-10);
+          return updated;
+        });
+      }
+    };
+
+    // Subscribe to task-related events
+    const unsubscribeTaskCreated = websocketService.on(WebSocketEventType.TASK_CREATED, handleDataUpdate);
+    const unsubscribeTaskUpdated = websocketService.on(WebSocketEventType.TASK_UPDATED, handleDataUpdate);
+    const unsubscribeTaskDeleted = websocketService.on(WebSocketEventType.TASK_DELETED, handleDataUpdate);
+    const unsubscribeTaskAssigned = websocketService.on(WebSocketEventType.TASK_ASSIGNED, handleDataUpdate);
+    const unsubscribeTaskStatus = websocketService.on(WebSocketEventType.TASK_STATUS_CHANGED, handleDataUpdate);
+
+    // Subscribe to project-related events
+    const unsubscribeProjectCreated = websocketService.on(WebSocketEventType.PROJECT_CREATED, handleDataUpdate);
+    const unsubscribeProjectUpdated = websocketService.on(WebSocketEventType.PROJECT_UPDATED, handleDataUpdate);
+    const unsubscribeProjectDeleted = websocketService.on(WebSocketEventType.PROJECT_DELETED, handleDataUpdate);
+    const unsubscribeProjectMember = websocketService.on(WebSocketEventType.PROJECT_MEMBER_ADDED, handleDataUpdate);
+
+    // Subscribe to user-related events
+    const unsubscribeUserInvited = websocketService.on(WebSocketEventType.USER_INVITED, handleDataUpdate);
+    const unsubscribeUserJoined = websocketService.on(WebSocketEventType.USER_JOINED, handleDataUpdate);
+    const unsubscribeUserUpdated = websocketService.on(WebSocketEventType.USER_UPDATED, handleDataUpdate);
+
+    // Subscribe to invitation events
+    const unsubscribeInvitationReceived = websocketService.on(WebSocketEventType.INVITATION_RECEIVED, handleDataUpdate);
+    const unsubscribeInvitationResponse = websocketService.on(WebSocketEventType.INVITATION_RESPONSE, handleDataUpdate);
+
+    // Subscribe to comment events
+    const unsubscribeCommentAdded = websocketService.on(WebSocketEventType.COMMENT_ADDED, handleDataUpdate);
+    const unsubscribeCommentDeleted = websocketService.on(WebSocketEventType.COMMENT_DELETED, handleDataUpdate);
+
+    return () => {
+      // Cleanup task subscriptions
+      unsubscribeTaskCreated();
+      unsubscribeTaskUpdated();
+      unsubscribeTaskDeleted();
+      unsubscribeTaskAssigned();
+      unsubscribeTaskStatus();
+      // Cleanup project subscriptions
+      unsubscribeProjectCreated();
+      unsubscribeProjectUpdated();
+      unsubscribeProjectDeleted();
+      unsubscribeProjectMember();
+      // Cleanup user subscriptions
+      unsubscribeUserInvited();
+      unsubscribeUserJoined();
+      unsubscribeUserUpdated();
+      // Cleanup invitation subscriptions
+      unsubscribeInvitationReceived();
+      unsubscribeInvitationResponse();
+      // Cleanup comment subscriptions
+      unsubscribeCommentAdded();
+      unsubscribeCommentDeleted();
+    };
+  }, []);
+
+  // Helper to generate change descriptions
+  const getChangeDescription = (message: WebSocketMessage): string | null => {
+    const payload = message.payload;
+    switch (message.type) {
+      // Task events
+      case WebSocketEventType.TASK_CREATED:
+        return `Task "${payload.title}" was created`;
+      case WebSocketEventType.TASK_UPDATED:
+        return `Task "${payload.title}" was updated`;
+      case WebSocketEventType.TASK_DELETED:
+        return `A task was deleted`;
+      case WebSocketEventType.TASK_ASSIGNED:
+        return `Task "${payload.title}" was reassigned to ${payload.assignee_name}`;
+      case WebSocketEventType.TASK_STATUS_CHANGED:
+        return `Task status changed to ${payload.status}`;
+      
+      // Project events
+      case WebSocketEventType.PROJECT_CREATED:
+        return `Project "${payload.name}" was created`;
+      case WebSocketEventType.PROJECT_UPDATED:
+        return `Project "${payload.name}" was updated`;
+      case WebSocketEventType.PROJECT_DELETED:
+        return `A project was deleted`;
+      case WebSocketEventType.PROJECT_MEMBER_ADDED:
+        return `A member was added to project "${payload.name || 'a project'}"`;
+      
+      // User events
+      case WebSocketEventType.USER_INVITED:
+        return `User "${payload.email || 'someone'}" was invited`;
+      case WebSocketEventType.USER_JOINED:
+        return `User "${payload.name || 'someone'}" joined the company`;
+      case WebSocketEventType.USER_UPDATED:
+        return `User "${payload.name || 'a user'}" was updated`;
+      
+      // Invitation events
+      case WebSocketEventType.INVITATION_RECEIVED:
+        return `New invitation received from ${payload.company_name || 'a company'}`;
+      case WebSocketEventType.INVITATION_RESPONSE:
+        return `Invitation ${payload.action === 'accept' ? 'accepted' : 'declined'} by ${payload.invitee_email || 'user'}`;
+      
+      // Comment events
+      case WebSocketEventType.COMMENT_ADDED:
+        return `New comment added by ${payload.user_name || 'someone'}`;
+      case WebSocketEventType.COMMENT_DELETED:
+        return `A comment was deleted`;
+      
+      default:
+        return null;
+    }
+  };
+
+  // Handle acknowledging data changes and refreshing context
+  const handleRefreshContext = useCallback(async () => {
+    if (loading) return;
+    
+    try {
+      // Notify the chatbot backend about the changes
+      if (pendingChanges.length > 0) {
+        await chatbotAPI.notifyChanges(pendingChanges);
+      }
+      
+      // Add a local message about the refresh
+      const changesInfo = pendingChanges.length > 0 
+        ? `Recent changes:\n${pendingChanges.map(c => `• ${c}`).join('\n')}`
+        : 'Data has been updated in the dashboard.';
+      
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        content: `🔄 **Dashboard data has been updated!**\n\n${changesInfo}\n\nI'm now using the latest data. You can ask me about tasks again to see the updated information.`,
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (err) {
+      console.error('Error notifying chatbot about changes:', err);
+      // Still show the message locally
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        content: `🔄 **Data has changed!** Please ask about tasks again to see the latest information.`,
+        timestamp: new Date().toISOString()
+      }]);
+    }
+    
+    setHasDataChanges(false);
+    setPendingChanges([]);
+  }, [loading, pendingChanges]);
+
   const handleResetChat = async () => {
     if (loading || resetting) return;
     setResetting(true);
@@ -119,6 +274,20 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
     const userMsg = input.trim();
     setInput('');
+    
+    // Always notify chatbot about any pending changes before sending message
+    // This ensures real-time data sync on every interaction
+    if (pendingChanges.length > 0) {
+      try {
+        await chatbotAPI.notifyChanges(pendingChanges);
+      } catch (err) {
+        console.error('Error notifying about changes:', err);
+      }
+      // Clear the changes regardless of API success
+      setHasDataChanges(false);
+      setPendingChanges([]);
+    }
+    
     setMessages(prev => [...prev, { 
       role: 'user', 
       content: userMsg,
@@ -232,6 +401,20 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Data refresh indicator */}
+          {hasDataChanges && (
+            <button
+              onClick={handleRefreshContext}
+              disabled={loading}
+              className="p-2 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-lg text-yellow-300 hover:text-yellow-200 transition-colors animate-pulse disabled:opacity-50 relative"
+              title={`Data updated! ${pendingChanges.length} change(s) detected. Click to refresh context.`}
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full text-xs text-black font-bold flex items-center justify-center">
+                {pendingChanges.length}
+              </span>
+            </button>
+          )}
           <button
             onClick={handleResetChat}
             disabled={loading || resetting}
