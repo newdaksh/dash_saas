@@ -32,8 +32,8 @@ export const UserDashboard: React.FC = () => {
   };
 
   return (
-    <div className="relative h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col space-y-8 relative z-10 p-1">
+    <div className="relative min-h-full flex flex-col">
+      <div className="flex-1 flex flex-col space-y-8 relative z-10 p-1 pb-8">
         
         {/* Welcome Header */}
         <div className="animate-slide-up rounded-2xl p-6 md:p-8 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 backdrop-blur-md border border-purple-200/50 shadow-sm">

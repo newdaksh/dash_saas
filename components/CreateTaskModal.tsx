@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Calendar, Flag, Layers, AlignLeft } from 'lucide-react';
+import { X, Calendar, Flag, Layers, AlignLeft, Users } from 'lucide-react';
 import { useApp } from '../context';
 import { Task, Status, Priority } from '../types';
 import { Button } from './Button';
@@ -12,26 +12,28 @@ interface CreateTaskModalProps {
 }
 
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose }) => {
-  const { addTask, user, projects } = useApp();
+  const { addTask, user, projects, users } = useApp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>(Priority.MEDIUM);
   const [dueDate, setDueDate] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
 
   if (!isOpen || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newTask: Partial<Task> = {
+    const newTask: Partial<Task> & { collaborator_ids?: string[] } = {
       title,
       description,
       status: Status.TODO,
       priority,
       due_date: dueDate || null,
       assignee_id: user.id, // Assign to self by default
-      project_id: projectId || undefined
+      project_id: projectId || undefined,
+      collaborator_ids: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined
     };
 
     addTask(newTask);
@@ -45,8 +47,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
     setPriority(Priority.MEDIUM);
     setDueDate('');
     setProjectId('');
+    setSelectedCollaboratorIds([]);
     onClose();
   };
+
+  const toggleCollaborator = (userId: string) => {
+    setSelectedCollaboratorIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  // Filter out current user from collaborator options
+  const availableCollaborators = users.filter(u => u.id !== user.id);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-[fadeIn_0.2s_ease-out]">
@@ -154,6 +168,54 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                  </div>
                </div>
              </div>
+
+             {/* Collaborators Section */}
+             {availableCollaborators.length > 0 && (
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                   <Users size={14} className="text-brand-500" />
+                   Collaborators
+                   {selectedCollaboratorIds.length > 0 && (
+                     <span className="text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">
+                       {selectedCollaboratorIds.length} selected
+                     </span>
+                   )}
+                 </label>
+                 <div className="border border-slate-200 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2 bg-slate-50/50">
+                   {availableCollaborators.map(collaborator => (
+                     <label
+                       key={collaborator.id}
+                       className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                         selectedCollaboratorIds.includes(collaborator.id)
+                           ? 'bg-brand-50 border border-brand-200'
+                           : 'hover:bg-white border border-transparent'
+                       }`}
+                     >
+                       <input
+                         type="checkbox"
+                         checked={selectedCollaboratorIds.includes(collaborator.id)}
+                         onChange={() => toggleCollaborator(collaborator.id)}
+                         className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500"
+                       />
+                       <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs shrink-0">
+                         {collaborator.avatar_url ? (
+                           <img src={collaborator.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                         ) : (
+                           collaborator.name.charAt(0)
+                         )}
+                       </div>
+                       <div className="flex flex-col min-w-0">
+                         <span className="text-sm font-medium text-slate-700 truncate">{collaborator.name}</span>
+                         <span className="text-xs text-slate-500 truncate">{collaborator.email}</span>
+                       </div>
+                     </label>
+                   ))}
+                 </div>
+                 <p className="text-xs text-slate-500">
+                   Select team members to collaborate on this task
+                 </p>
+               </div>
+             )}
            </div>
 
            <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 bg-slate-50/30 -mx-6 px-6 -mb-6 pb-6 mt-2">

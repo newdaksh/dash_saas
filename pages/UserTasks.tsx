@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
-import { Clock, Building2, Eye, GripVertical } from 'lucide-react';
+import { Clock, Building2, Eye, GripVertical, Users } from 'lucide-react';
 import { Task } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 
@@ -211,6 +211,38 @@ export const UserTasks: React.FC = () => {
                       </span>
                     </div>
                     
+                    {/* Collaborators display */}
+                    {task.collaborators && task.collaborators.length > 0 && (
+                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
+                        <Users size={12} className="text-teal-600" />
+                        <div className="flex items-center gap-1">
+                          <div className="flex -space-x-2">
+                            {task.collaborators.slice(0, 3).map(collab => (
+                              <div 
+                                key={collab.user_id} 
+                                className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] border-2 border-white"
+                                title={collab.user_name}
+                              >
+                                {collab.user_avatar ? (
+                                  <img src={collab.user_avatar} alt={collab.user_name} className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                  collab.user_name.charAt(0)
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <span className="text-xs text-slate-500">
+                            {task.collaborators.length === 1 
+                              ? task.collaborators[0].user_name
+                              : task.collaborators.length <= 3 
+                                ? task.collaborators.map(c => c.user_name).join(', ')
+                                : `${task.collaborators.slice(0, 2).map(c => c.user_name).join(', ')} +${task.collaborators.length - 2}`
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
                     {task.due_date && (
                       <div className="flex items-center gap-1 mt-3 text-xs text-slate-500">
                         <Clock size={12} />
@@ -255,8 +287,8 @@ export const UserTasks: React.FC = () => {
   };
 
   return (
-    <div className="relative h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1">
+    <div className="relative min-h-full flex flex-col">
+      <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1 pb-8">
         
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">

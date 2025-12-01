@@ -22,7 +22,7 @@ interface AppContextType {
   userRegister: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   // Tasks
-  addTask: (task: Partial<Task>) => Promise<Task | undefined>;
+  addTask: (task: Partial<Task> & { collaborator_ids?: string[] }) => Promise<Task | undefined>;
   updateTask: (task: Task) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   // Projects
@@ -716,7 +716,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addTask = async (task: Partial<Task>): Promise<Task | undefined> => {
+  const addTask = async (task: Partial<Task> & { collaborator_ids?: string[] }): Promise<Task | undefined> => {
     if (!user) return undefined;
     
     try {
@@ -729,6 +729,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         due_date: task.due_date || null,
         assignee_id: task.assignee_id || user.id,
         project_id: task.project_id || null,
+        collaborator_ids: task.collaborator_ids || [],
       });
       setTasks(prev => [newTask, ...prev]);
       return newTask;
@@ -742,6 +743,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateTask = async (updatedTask: Task) => {
     try {
       setError(null);
+      // Extract collaborator IDs from the collaborators array
+      const collaborator_ids = updatedTask.collaborators?.map(c => c.user_id) || [];
       const updated = await taskAPI.update(updatedTask.id, {
         title: updatedTask.title,
         description: updatedTask.description,
@@ -750,6 +753,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         due_date: updatedTask.due_date,
         assignee_id: updatedTask.assignee_id,
         project_id: updatedTask.project_id,
+        collaborator_ids: collaborator_ids,
       });
       setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
     } catch (err: any) {

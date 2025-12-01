@@ -25,8 +25,8 @@ export const UserCompanies: React.FC = () => {
   };
 
   return (
-    <div className="relative h-full flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1">
+    <div className="relative min-h-full flex flex-col">
+      <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1 pb-8">
         
         {/* Header */}
         <div className="animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">

@@ -23,8 +23,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto h-full p-4 md:p-8 custom-scrollbar scroll-smooth">
-        <div className="max-w-7xl mx-auto h-full">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar scroll-smooth">
+        <div className="max-w-7xl mx-auto">
            {children}
         </div>
       </main>
@@ -37,8 +37,8 @@ const UserLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 to-purple-50/30 overflow-hidden">
       <UserSidebar />
-      <main className="flex-1 overflow-y-auto h-full p-4 md:p-8 custom-scrollbar scroll-smooth">
-        <div className="max-w-7xl mx-auto h-full">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar scroll-smooth">
+        <div className="max-w-7xl mx-auto">
            {children}
         </div>
       </main>

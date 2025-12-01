@@ -1,10 +1,37 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Task, Status, Priority, Comment } from '../types';
-import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save, Briefcase } from 'lucide-react';
+import { Task, Status, Priority, Comment, Collaborator, TaskHistory, HistoryActionType } from '../types';
+import { X, Calendar, CheckCircle2, AlertCircle, MessageSquare, Send, ChevronDown, Building2, Crown, Trash2, AlertTriangle, Save, Briefcase, Users, History, Clock, ArrowRight, Edit3, UserPlus, Flag, FileText, Layers } from 'lucide-react';
 import { Button } from './Button';
 import { useApp } from '../context';
-import { commentAPI } from '../services/api';
+import { commentAPI, taskAPI } from '../services/api';
+import { websocketService, WebSocketEventType } from '../services/websocket';
+
+// Helper function to get action icon and color
+const getHistoryActionDetails = (action: HistoryActionType): { icon: React.ReactNode; color: string; label: string } => {
+  switch (action) {
+    case 'created':
+      return { icon: <CheckCircle2 size={14} />, color: 'text-green-600 bg-green-50', label: 'Created' };
+    case 'status_changed':
+      return { icon: <Flag size={14} />, color: 'text-blue-600 bg-blue-50', label: 'Status changed' };
+    case 'priority_changed':
+      return { icon: <AlertCircle size={14} />, color: 'text-orange-600 bg-orange-50', label: 'Priority changed' };
+    case 'assignee_changed':
+      return { icon: <UserPlus size={14} />, color: 'text-purple-600 bg-purple-50', label: 'Assignee changed' };
+    case 'due_date_changed':
+      return { icon: <Calendar size={14} />, color: 'text-indigo-600 bg-indigo-50', label: 'Due date changed' };
+    case 'project_changed':
+      return { icon: <Layers size={14} />, color: 'text-teal-600 bg-teal-50', label: 'Project changed' };
+    case 'title_changed':
+      return { icon: <Edit3 size={14} />, color: 'text-slate-600 bg-slate-50', label: 'Title changed' };
+    case 'description_changed':
+      return { icon: <FileText size={14} />, color: 'text-slate-600 bg-slate-50', label: 'Description changed' };
+    case 'collaborators_changed':
+      return { icon: <Users size={14} />, color: 'text-cyan-600 bg-cyan-50', label: 'Collaborators changed' };
+    default:
+      return { icon: <Edit3 size={14} />, color: 'text-slate-600 bg-slate-50', label: 'Updated' };
+  }
+};
 
 interface TaskPanelProps {
   task: Task | null;
@@ -18,6 +45,9 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
   const [commentText, setCommentText] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [history, setHistory] = useState<TaskHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   
   // Local form state for editing (completely independent of API calls)
   const [localTask, setLocalTask] = useState<Task | null>(null);
@@ -40,6 +70,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
     if (task) {
       setLocalTask({ ...task });
       setHasChanges(false);
+      setShowHistory(false); // Reset history view when task changes
+      setHistory([]); // Clear previous history
     }
   }, [task]);
 
@@ -58,6 +90,41 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
     return () => { mounted = false; };
   }, [task?.id]);
 
+  // Load history when showHistory is toggled
+  useEffect(() => {
+    if (!task || !showHistory) return;
+    let mounted = true;
+    setHistoryLoading(true);
+    (async () => {
+      try {
+        const data = await taskAPI.getHistory(task.id);
+        if (mounted) setHistory(data.history || []);
+      } catch (e) {
+        console.error('Failed to load history:', e);
+      } finally {
+        if (mounted) setHistoryLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [task?.id, showHistory]);
+
+  // WebSocket listener for real-time history updates
+  useEffect(() => {
+    if (!task) return;
+    
+    const unsubscribe = websocketService.on(WebSocketEventType.TASK_HISTORY_UPDATED, (message) => {
+      // Only update if this is for the current task and history is visible
+      if (message.payload?.task_id === task.id && showHistory) {
+        const newHistoryEntry = message.payload.history_entry;
+        setHistory(prev => [newHistoryEntry, ...prev]);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [task?.id, showHistory]);
+
   // Guard - AFTER all hooks
   if (!task || !user || !localTask) return null;
 
@@ -75,6 +142,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
     try {
       await updateTask(localTask);
       setHasChanges(false);
+      // Refresh history after saving to show new changes
+      if (showHistory) {
+        const data = await taskAPI.getHistory(localTask.id);
+        setHistory(data.history || []);
+      }
     } catch (error) {
       console.error('Failed to save task:', error);
     } finally {
@@ -95,6 +167,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
       // Save immediately in view-only mode
       await updateTask({ ...localTask, status: nextStatus });
       setLocalTask(prev => prev ? { ...prev, status: nextStatus } : null);
+      // Refresh history after status change
+      if (showHistory) {
+        const data = await taskAPI.getHistory(localTask.id);
+        setHistory(data.history || []);
+      }
     } else {
       updateLocalTask({ status: nextStatus });
     }
@@ -106,6 +183,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
       // Save immediately in view-only mode
       await updateTask({ ...localTask, status: newStatus });
       setLocalTask(prev => prev ? { ...prev, status: newStatus } : null);
+      // Refresh history after status change
+      if (showHistory) {
+        const data = await taskAPI.getHistory(localTask.id);
+        setHistory(data.history || []);
+      }
     } else {
       updateLocalTask({ status: newStatus });
     }
@@ -360,6 +442,92 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                 </div>
             </div>
 
+            {/* Collaborators Section */}
+            <div className="flex flex-col gap-1 col-span-2">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <Users size={12} />
+                Collaborators
+                {(localTask.collaborators?.length || 0) > 0 && (
+                  <span className="text-xs bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">
+                    {localTask.collaborators?.length}
+                  </span>
+                )}
+              </span>
+              
+              {viewOnly ? (
+                // View-only mode: just show collaborator names
+                <div className="flex flex-wrap gap-2 p-1 -ml-1">
+                  {(localTask.collaborators?.length || 0) === 0 ? (
+                    <span className="text-sm text-slate-400 italic">No collaborators</span>
+                  ) : (
+                    localTask.collaborators?.map(collab => (
+                      <div key={collab.user_id} className="flex items-center gap-2 bg-slate-50 rounded-full px-2 py-1">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">
+                          {collab.user_avatar ? (
+                            <img src={collab.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            collab.user_name.charAt(0)
+                          )}
+                        </div>
+                        <span className="text-sm text-slate-600">{collab.user_name}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                // Edit mode: show checkboxes to add/remove collaborators
+                <div className="border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-slate-50/50">
+                  {users.filter(u => u.id !== localTask.assignee_id).length === 0 ? (
+                    <span className="text-sm text-slate-400 italic p-1">No other team members available</span>
+                  ) : (
+                    users.filter(u => u.id !== localTask.assignee_id).map(potentialCollab => {
+                      const isSelected = localTask.collaborators?.some(c => c.user_id === potentialCollab.id) || false;
+                      return (
+                        <label
+                          key={potentialCollab.id}
+                          className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${
+                            isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              const currentCollabs = localTask.collaborators || [];
+                              if (isSelected) {
+                                // Remove collaborator
+                                updateLocalTask({
+                                  collaborators: currentCollabs.filter(c => c.user_id !== potentialCollab.id)
+                                });
+                              } else {
+                                // Add collaborator
+                                updateLocalTask({
+                                  collaborators: [...currentCollabs, {
+                                    user_id: potentialCollab.id,
+                                    user_name: potentialCollab.name,
+                                    user_avatar: potentialCollab.avatar_url
+                                  }]
+                                });
+                              }
+                            }}
+                            className="w-3.5 h-3.5 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                          />
+                          <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] shrink-0">
+                            {potentialCollab.avatar_url ? (
+                              <img src={potentialCollab.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              potentialCollab.name.charAt(0)
+                            )}
+                          </div>
+                          <span className="text-sm text-slate-600 truncate">{potentialCollab.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Due Date Input - read-only in view mode */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
@@ -529,6 +697,105 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="h-px bg-gray-200 w-full mb-8"></div>
+
+          {/* Task History Section */}
+          <div className="mb-4">
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full flex items-center justify-between font-semibold text-gray-900 mb-4 hover:text-brand-600 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <History size={18} />
+                <span>History</span>
+                <span className="text-xs text-gray-400 font-normal">(All changes with IST timestamps)</span>
+              </div>
+              <ChevronDown 
+                size={18} 
+                className={`transition-transform duration-200 ${showHistory ? 'rotate-180' : ''}`} 
+              />
+            </button>
+            
+            {showHistory && (
+              <div className="space-y-4 animate-fade-in">
+                {historyLoading ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-lg">
+                    <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <span className="text-slate-500 text-sm">Loading history...</span>
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
+                    No history recorded yet.
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {/* Timeline line */}
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
+                    
+                    <div className="space-y-4">
+                      {history.map((entry, index) => {
+                        const { icon, color, label } = getHistoryActionDetails(entry.action);
+                        return (
+                          <div key={entry.id} className="relative flex gap-4 pl-1">
+                            {/* Timeline dot */}
+                            <div className={`z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+                              {icon}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 pb-4">
+                              <div className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-[10px]">
+                                      {entry.user_avatar ? (
+                                        <img src={entry.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                                      ) : (
+                                        entry.user_name.charAt(0)
+                                      )}
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">{entry.user_name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                                    <Clock size={12} />
+                                    <span>{entry.created_at_ist}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Action description */}
+                                <div className="text-sm text-gray-600">
+                                  {entry.action === 'created' ? (
+                                    <span>Created this task: <span className="font-medium text-gray-900">"{entry.new_value}"</span></span>
+                                  ) : (
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      <span>{label}:</span>
+                                      {entry.old_value && (
+                                        <>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium line-through">
+                                            {String(entry.old_value)}
+                                          </span>
+                                          <ArrowRight size={12} className="text-gray-400" />
+                                        </>
+                                      )}
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium">
+                                        {String(entry.new_value)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

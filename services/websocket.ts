@@ -34,6 +34,9 @@ export const WebSocketEventType = {
   COMMENT_ADDED: 'COMMENT_ADDED',
   COMMENT_DELETED: 'COMMENT_DELETED',
   
+  // Task History events
+  TASK_HISTORY_UPDATED: 'TASK_HISTORY_UPDATED',
+  
   // Notification events
   NOTIFICATION: 'NOTIFICATION',
   

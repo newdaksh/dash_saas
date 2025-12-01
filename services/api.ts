@@ -296,6 +296,13 @@ export const taskAPI = {
     const response = await apiClient.patch(API_ENDPOINTS.TASKS.ASSIGNEE(id), { assignee_id });
     return response.data;
   },
+
+  getHistory: async (taskId: string, skip: number = 0, limit: number = 50) => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/tasks/${taskId}/history`, {
+      params: { skip, limit }
+    });
+    return response.data;
+  },
 };
 
 // ==================== Comment APIs ====================
