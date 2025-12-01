@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context';
 import { Sidebar } from './components/Sidebar';
 import { UserSidebar } from './components/UserSidebar';
+import ChatWidget from './components/ChatWidget';
 import { Dashboard } from './pages/Dashboard';
 import { TaskList } from './pages/TaskList';
 import { ProjectList } from './pages/ProjectList';
@@ -20,6 +21,7 @@ import { AdminNotifications } from './pages/AdminNotifications';
 
 // Admin Layout (Company Admin Dashboard)
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useApp();
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar />
@@ -28,12 +30,15 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            {children}
         </div>
       </main>
+      {/* AI Task Assistant Chat Widget */}
+      <ChatWidget userName={user?.name || 'User'} />
     </div>
   );
 };
 
 // User Layout (Individual User Dashboard)
 const UserLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useApp();
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 to-purple-50/30 overflow-hidden">
       <UserSidebar />
@@ -42,6 +47,8 @@ const UserLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            {children}
         </div>
       </main>
+      {/* AI Task Assistant Chat Widget */}
+      <ChatWidget userName={user?.name || 'User'} />
     </div>
   );
 };

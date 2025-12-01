@@ -369,4 +369,51 @@ export const invitationAPI = {
   },
 };
 
+// ==================== Chatbot APIs ====================
+
+// Chatbot API Base URL (separate service on port 8080)
+const CHATBOT_BASE_URL = 'http://localhost:8080';
+
+export const chatbotAPI = {
+  /**
+   * Send a message to the AI Task Assistant
+   */
+  sendMessage: async (message: string) => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/chat`, { message });
+    return response.data;
+  },
+
+  /**
+   * Reset the chat history
+   */
+  resetChat: async () => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/reset_chat`);
+    return response.data;
+  },
+
+  /**
+   * Get chat history for the current user
+   */
+  getHistory: async () => {
+    const response = await apiClient.get(`${CHATBOT_BASE_URL}/chat/history`);
+    return response.data;
+  },
+
+  /**
+   * Health check for chatbot service
+   */
+  healthCheck: async () => {
+    const response = await apiClient.get(`${CHATBOT_BASE_URL}/health`);
+    return response.data;
+  },
+
+  /**
+   * Get current user info from chatbot service
+   */
+  getMe: async () => {
+    const response = await apiClient.get(`${CHATBOT_BASE_URL}/me`);
+    return response.data;
+  },
+};
+
 export default apiClient;
