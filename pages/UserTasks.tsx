@@ -1,16 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
-import { Clock, Building2, Eye, GripVertical, Users } from 'lucide-react';
-import { Task } from '../types';
+import { Clock, Building2, Eye, GripVertical, Users, List, Kanban, Calendar, Layers, CheckCircle2, Circle, LayoutGrid } from 'lucide-react';
+import { Task, Status } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
+import { BoardView } from '../components/BoardView';
+import { CalendarView } from '../components/CalendarView';
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done';
+type ViewMode = 'list' | 'board' | 'calendar';
 
 export const UserTasks: React.FC = () => {
   const { user, tasks, updateTask } = useApp();
   
   // Selected task for viewing details
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('board');
   
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -249,26 +253,6 @@ export const UserTasks: React.FC = () => {
                         Due: {new Date(task.due_date).toLocaleDateString()}
                       </div>
                     )}
-                    
-                    {/* Quick status change buttons - still enabled for users */}
-                    <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
-                      {(['To Do', 'In Progress', 'Review', 'Done'] as TaskStatus[]).map(statusOption => (
-                        <button
-                          key={statusOption}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(task.id, statusOption);
-                          }}
-                          className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-                            task.status === statusOption 
-                              ? 'bg-purple-600 text-white' 
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                        >
-                          {statusOption}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 );
               })}
@@ -291,33 +275,69 @@ export const UserTasks: React.FC = () => {
       <div className="flex-1 flex flex-col space-y-6 relative z-10 p-1 pb-8">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-purple-100/80 text-purple-700">
-                Personal
-              </span>
-              {hasMultipleCompanies && (
-                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-blue-100/80 text-blue-700">
-                  {uniqueCompanies.size} Companies
+        <div className="animate-slide-up rounded-2xl p-4 md:p-6 bg-white/40 backdrop-blur-md border border-white/40 shadow-sm">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 bg-purple-100/80 text-purple-700">
+                  Personal
                 </span>
-              )}
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight drop-shadow-sm">
+                My Tasks
+              </h1>
+              <p className="text-slate-600 font-medium mt-1">
+                View and manage tasks assigned to you.
+              </p>
             </div>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight drop-shadow-sm">
-              My Tasks
-            </h1>
-            <p className="text-slate-600 font-medium mt-1">
-              View and manage tasks assigned to you across all companies.
-            </p>
-            <p className="text-slate-500 text-sm mt-2 flex items-center gap-2">
-              <GripVertical size={14} className="text-purple-500" />
-              <span>Drag and drop tasks or use buttons to change status</span>
-            </p>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title="List View"
+              >
+                <List size={18} />
+                <span className="text-sm font-medium hidden sm:inline">List</span>
+              </button>
+              
+              <button
+                onClick={() => setViewMode('board')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+                  viewMode === 'board'
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Board View"
+              >
+                <Kanban size={18} />
+                <span className="text-sm font-medium hidden sm:inline">Board</span>
+              </button>
+              
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+                  viewMode === 'calendar'
+                    ? 'bg-brand-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Calendar View"
+              >
+                <Calendar size={18} />
+                <span className="text-sm font-medium hidden sm:inline">Calendar</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Kanban Board */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
+        {/* Kanban Board / List / Calendar View */}
+        {viewMode === 'board' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
           <TaskColumn 
             title="To Do" 
             tasks={todoTasks} 
@@ -351,6 +371,120 @@ export const UserTasks: React.FC = () => {
             dropHighlightColor="border-green-400"
           />
         </div>
+        ) : viewMode === 'list' ? (
+          // List View
+          <div className="flex-1 space-y-2 md:space-y-3">
+            {myTasks.length > 0 ? (
+              myTasks.map((task, idx) => (
+                <div 
+                  key={task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                  className="group relative grid grid-cols-12 gap-3 md:gap-6 p-4 md:p-5 bg-white/90 backdrop-blur-sm rounded-xl md:rounded-2xl border border-indigo-100/50 shadow-sm hover:shadow-lg hover:shadow-indigo-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer items-center overflow-hidden"
+                  style={{ animationDelay: `${0.05 * idx}s` }}
+                >
+                  {/* Hover Gradient Glow */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  
+                  {/* Selection Indicator */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-brand-500 transition-all duration-300 ${selectedTaskId === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
+
+                  {/* Task Title */}
+                  <div className="col-span-12 md:col-span-5 flex items-center gap-4 relative z-10">
+                    <div className={`transition-all duration-300 p-1 rounded-full cursor-pointer z-20`}>
+                      {task.status === 'Done' ? (
+                        <CheckCircle2 size={20} className="fill-green-100 text-green-500" />
+                      ) : (
+                        <Circle size={20} strokeWidth={2.5} className="text-slate-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className={`font-semibold text-sm md:text-base block transition-all ${
+                        task.status === 'Done' ? 'text-slate-400 line-through' : 'text-slate-900'
+                      }`}>
+                        {task.title}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1 md:hidden">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                          task.priority === 'High' ? 'bg-red-50 text-red-600 border-red-100' :
+                          task.priority === 'Medium' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                          'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        }`}>
+                          {task.priority}
+                        </span>
+                        {task.project_name && <span className="text-[10px] text-slate-500">• {task.project_name}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Project Tag */}
+                  <div className="hidden md:flex col-span-2 items-center relative z-10">
+                    {task.project_name ? (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/50 text-slate-600 border border-slate-200/50 group-hover:border-brand-200 group-hover:text-brand-600 transition-colors">
+                        <Layers size={12} />
+                        <span className="truncate">{task.project_name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 px-2">-</span>
+                    )}
+                  </div>
+
+                  {/* Date */}
+                  <div className="hidden md:flex col-span-2 text-sm relative z-10">
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg group-hover:bg-white/50 transition-colors">
+                      {task.due_date ? (
+                        <>
+                          <Calendar size={14} className={new Date(task.due_date) < new Date() ? 'text-red-500' : 'text-slate-400'} />
+                          <span className={`font-medium ${new Date(task.due_date) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
+                            {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        </>
+                      ) : <span className="text-slate-300">-</span>}
+                    </div>
+                  </div>
+
+                  {/* Assignee */}
+                  <div className="col-span-3 md:col-span-2 flex items-center gap-2 relative z-10">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-100 to-slate-200 p-[2px] shadow-sm ring-2 ring-white group-hover:ring-brand-100 transition-all">
+                      <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                        {task.assignee_avatar ? 
+                          <img src={task.assignee_avatar} alt="" className="w-full h-full object-cover" /> : 
+                          <span className="text-[10px] font-bold text-slate-600">{task.assignee_name.charAt(0)}</span>
+                        }
+                      </div>
+                    </div>
+                    <span className="text-xs pr-6 font-medium text-slate-600 truncate hidden lg:block group-hover:text-slate-900 transition-colors">{task.assignee_name}</span>
+                  </div>
+
+                  {/* Priority */}
+                  <div className="hidden md:flex col-span-1 text-right justify-end items-center relative z-10">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm transition-transform group-hover:scale-105 ${
+                      task.priority === 'High' ? 'bg-red-50/80 text-red-600 border-red-100' :
+                      task.priority === 'Medium' ? 'bg-orange-50/80 text-orange-600 border-orange-100' :
+                      'bg-emerald-50/80 text-emerald-600 border-emerald-100'
+                    }`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 bg-white/80 backdrop-blur-sm rounded-3xl border border-dashed border-indigo-200/50">
+                <div className="bg-white p-6 rounded-full mb-4 shadow-lg">
+                   <LayoutGrid size={40} className="text-brand-400" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-700">No tasks found</h3>
+                <p className="text-slate-500 text-sm mt-1">Your workspace is looking clean!</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Calendar View
+          <CalendarView 
+            tasks={myTasks}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={setSelectedTaskId}
+          />
+        )}
       </div>
       
       {/* Task Detail Panel - View Only Mode */}
