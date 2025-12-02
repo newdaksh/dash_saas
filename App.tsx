@@ -5,6 +5,7 @@ import { AppProvider, useApp } from './context';
 import { Sidebar } from './components/Sidebar';
 import { UserSidebar } from './components/UserSidebar';
 import ChatWidget from './components/ChatWidget';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import { Dashboard } from './pages/Dashboard';
 import { TaskList } from './pages/TaskList';
 import { ProjectList } from './pages/ProjectList';
@@ -189,11 +190,13 @@ const AppRoutes = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </AppProvider>
+    </ErrorBoundary>
   );
 };
 
