@@ -380,6 +380,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         data: message.payload,
       };
       setNotifications(prev => [newNotification, ...prev]);
+      // Schedule a data refresh to ensure UI is in sync
+      scheduleRealtimeRefresh('USER_INVITED');
     });
 
     // Handle invitation response events (for admins who sent invitations)
@@ -460,8 +462,85 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } else if (changeType === 'task_deleted' && details.task_id) {
           console.log('🤖 [CHATBOT] Task deleted by chatbot, removing from state');
           setTasks(prev => prev.filter(t => t.id !== details.task_id));
+        } else if (changeType === 'task_due_date_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task due date updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, due_date: details.new_due_date } 
+              : t
+          ));
+        } else if (changeType === 'task_status_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task status updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, status: details.new_status } 
+              : t
+          ));
+        } else if (changeType === 'task_priority_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task priority updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, priority: details.new_priority } 
+              : t
+          ));
         } else if (changeType.includes('status') || changeType.includes('priority') || changeType.includes('project')) {
           console.log('🤖 [CHATBOT] Task updated by chatbot');
+        }
+      } else if (changeType.includes('project')) {
+        console.log('🤖 [CHATBOT] Project change detected:', changeType);
+        // Handle project-specific changes
+        if (changeType === 'project_deleted' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project deleted by chatbot, removing from state');
+          setProjects(prev => prev.filter(p => p.id !== details.project_id));
+          // Also update tasks that belonged to this project
+          setTasks(prev => prev.map(t => 
+            t.project_id === details.project_id 
+              ? { ...t, project_id: undefined, project_name: undefined } 
+              : t
+          ));
+        } else if (changeType === 'project_name_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project name updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, name: details.new_name } 
+              : p
+          ));
+          // Also update project_name in related tasks
+          setTasks(prev => prev.map(t => 
+            t.project_id === details.project_id 
+              ? { ...t, project_name: details.new_name } 
+              : t
+          ));
+        } else if (changeType === 'project_status_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project status updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, status: details.new_status } 
+              : p
+          ));
+        } else if (changeType === 'project_client_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project client updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, client_name: details.new_client } 
+              : p
+          ));
+        } else if (changeType === 'project_owner_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project owner updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, owner_name: details.new_owner } 
+              : p
+          ));
+        } else if (changeType === 'project_deadline_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project deadline updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, due_date: details.new_deadline === 'None' ? null : details.new_deadline } 
+              : p
+          ));
+        } else if (changeType === 'project_task_added' || changeType === 'project_task_removed') {
+          console.log('🤖 [CHATBOT] Project task association changed');
         }
       } else if (changeType.includes('invitation')) {
         console.log('🤖 [CHATBOT] Invitation change detected');
