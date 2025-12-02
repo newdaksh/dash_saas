@@ -374,6 +374,10 @@ export const invitationAPI = {
 // Chatbot API Base URL (separate service on port 8081)
 const CHATBOT_BASE_URL = 'http://localhost:8081';
 
+// In-memory cache + in-flight promise to dedupe history requests in the SPA runtime
+let _chatbotHistoryCache: any = null;
+let _chatbotHistoryPromise: Promise<any> | null = null;
+
 export const chatbotAPI = {
   /**
    * Send a message to the AI Task Assistant
@@ -388,15 +392,42 @@ export const chatbotAPI = {
    */
   resetChat: async () => {
     const response = await apiClient.post(`${CHATBOT_BASE_URL}/reset_chat`);
+    // Clear local cache so subsequent calls fetch fresh state
+    _chatbotHistoryCache = null;
+    _chatbotHistoryPromise = null;
     return response.data;
   },
 
   /**
    * Get chat history for the current user
    */
-  getHistory: async () => {
-    const response = await apiClient.get(`${CHATBOT_BASE_URL}/chat/history`);
-    return response.data;
+  /**
+   * Get chat history with simple in-memory caching + in-flight dedupe.
+   * Call without args to return cached result when available. Pass { force: true }
+   * to bypass the cache.
+   */
+  getHistory: async (opts?: { force?: boolean } ) => {
+    const force = opts?.force === true;
+    if (!force && _chatbotHistoryCache) {
+      return _chatbotHistoryCache;
+    }
+
+    if (!force && _chatbotHistoryPromise) {
+      return _chatbotHistoryPromise;
+    }
+
+    _chatbotHistoryPromise = apiClient.get(`${CHATBOT_BASE_URL}/chat/history`)
+      .then((res) => {
+        _chatbotHistoryCache = res.data;
+        _chatbotHistoryPromise = null;
+        return _chatbotHistoryCache;
+      })
+      .catch((err) => {
+        _chatbotHistoryPromise = null;
+        throw err;
+      });
+
+    return _chatbotHistoryPromise;
   },
 
   /**
