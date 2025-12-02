@@ -371,8 +371,8 @@ export const invitationAPI = {
 
 // ==================== Chatbot APIs ====================
 
-// Chatbot API Base URL (separate service on port 8080)
-const CHATBOT_BASE_URL = 'http://localhost:8080';
+// Chatbot API Base URL (separate service on port 8081)
+const CHATBOT_BASE_URL = 'http://localhost:8081';
 
 export const chatbotAPI = {
   /**
