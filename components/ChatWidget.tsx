@@ -58,6 +58,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Use controlled state if provided
   const effectiveIsOpen = controlledIsOpen !== undefined ? controlledIsOpen : isOpen;
@@ -70,6 +71,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-resize textarea when input changes
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const newHeight = Math.min(ta.scrollHeight, 192); // limit to match max visual size
+    ta.style.height = `${newHeight}px`;
+  }, [input]);
+
+  // list insertion functionality removed; only newline (Shift+Enter) is kept
 
   // Load chat history on mount
   useEffect(() => {
@@ -518,14 +530,24 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       {/* Input Area */}
       <div className="p-3 bg-gray-800 border-t border-gray-700">
         <form onSubmit={handleSend} className="relative">
-          <input
-            type="text"
+          {/* Toolbar removed - textarea only */}
+
+          <textarea
+            ref={(el) => textareaRef.current = el}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your tasks..."
-            className="w-full bg-gray-900 border border-gray-600 rounded-xl py-3 pl-4 pr-12 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e as any);
+              }
+            }}
+            placeholder="Ask about your tasks... (Enter to send, Shift+Enter for newline)"
+            className="w-full bg-gray-900 border border-gray-600 rounded-xl py-2 pl-4 pr-12 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none max-h-48 overflow-auto"
             disabled={loading}
+            rows={2}
           />
+
           <button
             type="submit"
             disabled={!input.trim() || loading}
