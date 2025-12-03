@@ -4,7 +4,7 @@
  */
 
 // Backend API Base URL
-export const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = 'http://localhost:8001';
 
 // WebSocket URL (replace http with ws)
 export const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
