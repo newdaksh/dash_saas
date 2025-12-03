@@ -196,6 +196,37 @@ export const userAPI = {
   },
 };
 
+// ==================== Profile APIs (Self-service) ====================
+
+export const profileAPI = {
+  getMyProfile: async () => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/profile/me`);
+    return response.data;
+  },
+
+  updateMyProfile: async (data: { name?: string; email?: string; avatar_url?: string }) => {
+    const response = await apiClient.put(`${API_BASE_URL}/api/v1/profile/me`, data);
+    return response.data;
+  },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post(`${API_BASE_URL}/api/v1/profile/me/avatar`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteAvatar: async () => {
+    const response = await apiClient.delete(`${API_BASE_URL}/api/v1/profile/me/avatar`);
+    return response.data;
+  },
+};
+
 // ==================== Project APIs ====================
 
 export const projectAPI = {

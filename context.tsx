@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { User, Task, Project, Invitation, Notification, UserType } from './types';
-import { authAPI, userAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
+import { authAPI, userAPI, profileAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
 import { websocketService, WebSocketEventType, WebSocketMessage } from './services/websocket';
 
 interface AppContextType {
@@ -436,6 +436,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setNotifications(prev => [newNotification, ...prev]);
     });
 
+    // Handle user profile updates (when any user in the company updates their profile)
+    const unsubUserProfileUpdated = websocketService.on(WebSocketEventType.USER_PROFILE_UPDATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: User profile updated', message.payload);
+      
+      const updatedUserData = message.payload;
+      
+      // Update the user in the users list
+      setUsers(prev => prev.map(u => 
+        u.id === updatedUserData.id ? { ...u, ...updatedUserData } : u
+      ));
+      
+      // If this is the current user, update their data too
+      if (userRef.current && userRef.current.id === updatedUserData.id) {
+        const updatedCurrentUser = { ...userRef.current, ...updatedUserData };
+        setUser(updatedCurrentUser);
+        setUserData(updatedCurrentUser);
+      }
+    });
+
     // Handle connection established
     const unsubConnected = websocketService.on(WebSocketEventType.CONNECTION_ESTABLISHED, (message: WebSocketMessage) => {
       console.log('WebSocket: Connection established', message.payload);
@@ -544,6 +563,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } else if (changeType.includes('invitation')) {
         console.log('🤖 [CHATBOT] Invitation change detected');
+      } else if (changeType === 'user_profile_updated') {
+        console.log('🤖 [CHATBOT] User profile updated by chatbot');
+        const userId = details.user_id;
+        if (userId) {
+          // Refresh user data immediately - fetch fresh user info
+          console.log('🤖 [CHATBOT] Refreshing user data for user:', userId);
+          if (userRef.current && userRef.current.id === userId) {
+            // Schedule immediate refresh to get updated profile
+            scheduleRealtimeRefresh('CHATBOT_PROFILE_UPDATE');
+          }
+        }
       }
       
       // Create notification for user about chatbot action
@@ -592,6 +622,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubUserInvited();
       unsubInvitationResponse();
       unsubUserJoined();
+      unsubUserProfileUpdated();
       unsubConnected();
       unsubPong();
       unsubChatbotDbChange();
@@ -885,8 +916,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     try {
       setError(null);
-      const updatedUser = await userAPI.update(user.id, data);
-      setUser(updatedUser);
+      // Use profileAPI for self-updates which supports avatar upload
+      const updatedUser = await profileAPI.updateMyProfile({
+        name: data.name,
+        email: data.email,
+        avatar_url: data.avatar_url
+      });
+      
+      // Preserve user_type when updating
+      const userWithType = { ...updatedUser, user_type: user.user_type };
+      setUser(userWithType);
+      setUserData(userWithType);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     } catch (err: any) {
       console.error('Failed to update user:', err);

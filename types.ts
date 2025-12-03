@@ -24,7 +24,8 @@ export interface User {
   company_ids?: string[];  // Array of all company IDs
   current_company_id?: string;  // Currently active company
   current_company_name?: string;
-  avatar_url?: string;
+  avatar_url?: string;  // Avatar URL from API
+  avatarUrl?: string;   // Alias for backwards compatibility
   status: 'Active' | 'Invited';
   role: 'Admin' | 'Member' | 'Viewer';
   user_type: UserType; // 'admin' for company admins, 'user' for individual users

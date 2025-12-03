@@ -1,19 +1,35 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { User, Mail, Building, Camera, Save, Building2 } from 'lucide-react';
+import { User, Mail, Building, Camera, Save, Building2, Upload, Link, X, Loader2 } from 'lucide-react';
+import { profileAPI } from '../services/api';
 
 export const Profile: React.FC = () => {
   const { user, updateUser } = useApp();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    company_name: user?.company_name || '',
     avatar_url: user?.avatar_url || ''
   });
   const [isSaved, setIsSaved] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync formData with context user when it changes (e.g., from WebSocket updates)
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        avatar_url: user.avatar_url || ''
+      });
+    }
+  }, [user?.name, user?.email, user?.avatar_url]);
 
   if (!user) return null;
 
@@ -22,11 +38,81 @@ export const Profile: React.FC = () => {
     setIsSaved(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser(formData);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    try {
+      await updateUser({
+        name: formData.name,
+        email: formData.email,
+        avatar_url: formData.avatar_url
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError('Please upload a valid image file (JPG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('File size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const updatedUser = await profileAPI.uploadAvatar(file);
+      setFormData(prev => ({ ...prev, avatar_url: updatedUser.avatar_url }));
+      await updateUser({ avatar_url: updatedUser.avatar_url });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error: any) {
+      console.error('Failed to upload avatar:', error);
+      setUploadError(error.response?.data?.detail || 'Failed to upload avatar');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAvatarUrlSubmit = async () => {
+    if (!avatarUrlInput.trim()) return;
+
+    try {
+      await updateUser({ avatar_url: avatarUrlInput.trim() });
+      setFormData(prev => ({ ...prev, avatar_url: avatarUrlInput.trim() }));
+      setShowUrlInput(false);
+      setAvatarUrlInput('');
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) {
+      console.error('Failed to update avatar URL:', error);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      await profileAPI.deleteAvatar();
+      setFormData(prev => ({ ...prev, avatar_url: '' }));
+      await updateUser({ avatar_url: '' });
+    } catch (error) {
+      console.error('Failed to remove avatar:', error);
+    }
   };
 
   return (
@@ -54,10 +140,86 @@ export const Profile: React.FC = () => {
                     </div>
                  )}
               </div>
-              <button className="absolute bottom-0 right-0 p-2.5 bg-brand-600 text-white rounded-full shadow-lg hover:bg-brand-700 transition-colors transform hover:scale-105 border-2 border-white">
-                <Camera size={18} />
+              
+              {/* Upload button */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                className="hidden"
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="absolute bottom-0 right-0 p-2.5 bg-brand-600 text-white rounded-full shadow-lg hover:bg-brand-700 transition-colors transform hover:scale-105 border-2 border-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Camera size={18} />
+                )}
               </button>
             </div>
+            
+            {/* Avatar action buttons */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1"
+              >
+                <Upload size={12} />
+                Upload
+              </button>
+              <button
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1"
+              >
+                <Link size={12} />
+                URL
+              </button>
+              {formData.avatar_url && (
+                <button
+                  onClick={handleRemoveAvatar}
+                  className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+                >
+                  <X size={12} />
+                  Remove
+                </button>
+              )}
+            </div>
+
+            {/* URL Input */}
+            {showUrlInput && (
+              <div className="w-full mb-4 space-y-2">
+                <input
+                  type="url"
+                  value={avatarUrlInput}
+                  onChange={(e) => setAvatarUrlInput(e.target.value)}
+                  placeholder="https://example.com/avatar.jpg"
+                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAvatarUrlSubmit}
+                    className="flex-1 text-xs px-3 py-1.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                  >
+                    Apply URL
+                  </button>
+                  <button
+                    onClick={() => { setShowUrlInput(false); setAvatarUrlInput(''); }}
+                    className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {uploadError && (
+              <p className="text-xs text-red-600 mb-4">{uploadError}</p>
+            )}
             
             <h2 className="text-xl font-bold text-slate-800">{user.name}</h2>
             <div className="text-slate-500 text-sm mb-6">
@@ -155,7 +317,7 @@ export const Profile: React.FC = () => {
               />
 
               <div className="space-y-1.5">
-                 <label className="text-sm font-medium text-slate-700">Avatar URL</label>
+                 <label className="text-sm font-medium text-slate-700">Avatar URL (Alternative)</label>
                  <input 
                    name="avatar_url"
                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -163,7 +325,7 @@ export const Profile: React.FC = () => {
                    onChange={handleChange}
                    placeholder="https://example.com/photo.jpg"
                  />
-                 <p className="text-xs text-slate-400">Paste a direct link to an image to update your avatar.</p>
+                 <p className="text-xs text-slate-400">You can also upload an image directly using the buttons above.</p>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-4">
