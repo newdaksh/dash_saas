@@ -23,13 +23,14 @@ export const Profile: React.FC = () => {
   // Sync formData with context user when it changes (e.g., from WebSocket updates)
   useEffect(() => {
     if (user) {
+      console.log('Profile: User data changed, updating form', { user });
       setFormData({
         name: user.name || '',
         email: user.email || '',
         avatar_url: user.avatar_url || ''
       });
     }
-  }, [user?.name, user?.email, user?.avatar_url]);
+  }, [user?.id, user?.name, user?.email, user?.avatar_url]);
 
   if (!user) return null;
 

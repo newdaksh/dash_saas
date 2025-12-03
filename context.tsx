@@ -438,7 +438,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Handle user profile updates (when any user in the company updates their profile)
     const unsubUserProfileUpdated = websocketService.on(WebSocketEventType.USER_PROFILE_UPDATED, (message: WebSocketMessage) => {
-      console.log('WebSocket: User profile updated', message.payload);
+      console.log('✓ WebSocket: User profile updated received', message.payload);
       
       const updatedUserData = message.payload;
       
@@ -449,10 +449,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       // If this is the current user, update their data too
       if (userRef.current && userRef.current.id === updatedUserData.id) {
+        console.log('✓ Profile update is for current user, updating state immediately');
         const updatedCurrentUser = { ...userRef.current, ...updatedUserData };
         setUser(updatedCurrentUser);
         setUserData(updatedCurrentUser);
+        console.log('✓ Current user state updated:', updatedCurrentUser);
+      } else {
+        console.log('✓ Profile update is for another user:', updatedUserData.id);
       }
+      
+      // Schedule a full refresh to ensure consistency
+      scheduleRealtimeRefresh('USER_PROFILE_UPDATED');
     });
 
     // Handle connection established
@@ -566,13 +573,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else if (changeType === 'user_profile_updated') {
         console.log('🤖 [CHATBOT] User profile updated by chatbot');
         const userId = details.user_id;
-        if (userId) {
-          // Refresh user data immediately - fetch fresh user info
-          console.log('🤖 [CHATBOT] Refreshing user data for user:', userId);
-          if (userRef.current && userRef.current.id === userId) {
-            // Schedule immediate refresh to get updated profile
-            scheduleRealtimeRefresh('CHATBOT_PROFILE_UPDATE');
+        const updates = details.updates || [];
+        
+        if (userId && userRef.current && userRef.current.id === userId) {
+          console.log('🤖 [CHATBOT] This is the current user, fetching fresh profile data');
+          
+          // Immediately fetch fresh user data from the server
+          try {
+            profileAPI.getMyProfile().then((freshUserData: any) => {
+              console.log('🤖 [CHATBOT] Fresh profile data received:', freshUserData);
+              const updatedUser = { ...userRef.current, ...freshUserData };
+              setUser(updatedUser);
+              setUserData(updatedUser);
+              console.log('🤖 [CHATBOT] ✓ Profile state updated immediately');
+            }).catch((err: any) => {
+              console.error('🤖 [CHATBOT] ✗ Failed to fetch fresh profile:', err);
+            });
+          } catch (err) {
+            console.error('🤖 [CHATBOT] ✗ Error fetching profile:', err);
           }
+        } else if (userId) {
+          console.log('🤖 [CHATBOT] Profile update for another user:', userId);
         }
       }
       
