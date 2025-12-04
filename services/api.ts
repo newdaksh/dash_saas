@@ -403,7 +403,7 @@ export const invitationAPI = {
 // ==================== Chatbot APIs ====================
 
 // Chatbot API Base URL (separate service on port 8081)
-const CHATBOT_BASE_URL = 'http://localhost:8081';
+const CHATBOT_BASE_URL = 'https://nexus-chatbot-backend.onrender.com';
 
 // In-memory cache + in-flight promise to dedupe history requests in the SPA runtime
 let _chatbotHistoryCache: any = null;

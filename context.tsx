@@ -1,12 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-<<<<<<< HEAD
 import { User, Task, Project, Invitation, Notification, UserType, Comment } from './types';
-import { authAPI, userAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
-=======
-import { User, Task, Project, Invitation, Notification, UserType } from './types';
 import { authAPI, userAPI, profileAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
->>>>>>> ef31d7dded2c3d6e7ad259c11361e89d7c193073
 import { websocketService, WebSocketEventType, WebSocketMessage } from './services/websocket';
 
 // Comment event types for real-time updates
@@ -99,9 +94,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const realtimeRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const refreshDataRef = useRef<(() => Promise<void>) | null>(null);
 
-<<<<<<< HEAD
-    initializeApp();
-  }, []);
 
   // WebSocket connection and event handling
   useEffect(() => {
@@ -164,7 +156,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Add notification for unassigned task
       const newNotification: Notification = {
         id: `notif-unassign-${Date.now()}`,
-        type: 'task_unassigned',
+        type: 'system',
         message: message.payload.message || `Task "${message.payload.title}" has been reassigned`,
         read: false,
         createdAt: new Date().toISOString(),
@@ -324,9 +316,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user?.id, emitCommentEvent]); // Re-run when user changes
 
   const refreshData = async () => {
-=======
-  const refreshData = useCallback(async () => {
->>>>>>> ef31d7dded2c3d6e7ad259c11361e89d7c193073
     console.log('Starting refreshData...');
     try {
       const usersPromise = userAPI.getAll().catch(err => { 
@@ -383,7 +372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.error('Failed to refresh data:', err, err.stack);
       setError(err.message);
     }
-  }, []);
+  };
 
   // Store refreshData in ref so scheduleRealtimeRefresh doesn't need it as dependency
   useEffect(() => {

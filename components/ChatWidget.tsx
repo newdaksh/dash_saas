@@ -533,7 +533,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           {/* Toolbar removed - textarea only */}
 
           <textarea
-            ref={(el) => textareaRef.current = el}
+            ref={(el) => { textareaRef.current = el; }}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
