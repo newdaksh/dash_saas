@@ -4,8 +4,9 @@
  */
 
 // Backend API Base URL
-// Use local backend by default for development. Change to deployment URL for production.
-export const API_BASE_URL = 'https://nexus-backend-g0gm.onrender.com';
+// Prefer Vite env `VITE_API_BASE_URL` if present, else fall back to prod URL
+export const API_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL || 'https://nexus-backend-ggm.onrender.com';
 
 // WebSocket URL - derive from API_BASE_URL replacing http/https with ws/wss
 export const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
