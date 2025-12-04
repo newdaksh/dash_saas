@@ -196,6 +196,37 @@ export const userAPI = {
   },
 };
 
+// ==================== Profile APIs (Self-service) ====================
+
+export const profileAPI = {
+  getMyProfile: async () => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/profile/me`);
+    return response.data;
+  },
+
+  updateMyProfile: async (data: { name?: string; email?: string; avatar_url?: string }) => {
+    const response = await apiClient.put(`${API_BASE_URL}/api/v1/profile/me`, data);
+    return response.data;
+  },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post(`${API_BASE_URL}/api/v1/profile/me/avatar`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteAvatar: async () => {
+    const response = await apiClient.delete(`${API_BASE_URL}/api/v1/profile/me/avatar`);
+    return response.data;
+  },
+};
+
 // ==================== Project APIs ====================
 
 export const projectAPI = {
@@ -296,6 +327,13 @@ export const taskAPI = {
     const response = await apiClient.patch(API_ENDPOINTS.TASKS.ASSIGNEE(id), { assignee_id });
     return response.data;
   },
+
+  getHistory: async (taskId: string, skip: number = 0, limit: number = 50) => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/tasks/${taskId}/history`, {
+      params: { skip, limit }
+    });
+    return response.data;
+  },
 };
 
 // ==================== Comment APIs ====================
@@ -358,6 +396,92 @@ export const invitationAPI = {
 
   delete: async (id: string) => {
     const response = await apiClient.delete(API_ENDPOINTS.INVITATIONS.DELETE(id));
+    return response.data;
+  },
+};
+
+// ==================== Chatbot APIs ====================
+
+// Chatbot API Base URL (separate service on port 8081)
+const CHATBOT_BASE_URL = 'http://localhost:8081';
+
+// In-memory cache + in-flight promise to dedupe history requests in the SPA runtime
+let _chatbotHistoryCache: any = null;
+let _chatbotHistoryPromise: Promise<any> | null = null;
+
+export const chatbotAPI = {
+  /**
+   * Send a message to the AI Task Assistant
+   */
+  sendMessage: async (message: string) => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/chat`, { message });
+    return response.data;
+  },
+
+  /**
+   * Reset the chat history
+   */
+  resetChat: async () => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/reset_chat`);
+    // Clear local cache so subsequent calls fetch fresh state
+    _chatbotHistoryCache = null;
+    _chatbotHistoryPromise = null;
+    return response.data;
+  },
+
+  /**
+   * Get chat history for the current user
+   */
+  /**
+   * Get chat history with simple in-memory caching + in-flight dedupe.
+   * Call without args to return cached result when available. Pass { force: true }
+   * to bypass the cache.
+   */
+  getHistory: async (opts?: { force?: boolean } ) => {
+    const force = opts?.force === true;
+    if (!force && _chatbotHistoryCache) {
+      return _chatbotHistoryCache;
+    }
+
+    if (!force && _chatbotHistoryPromise) {
+      return _chatbotHistoryPromise;
+    }
+
+    _chatbotHistoryPromise = apiClient.get(`${CHATBOT_BASE_URL}/chat/history`)
+      .then((res) => {
+        _chatbotHistoryCache = res.data;
+        _chatbotHistoryPromise = null;
+        return _chatbotHistoryCache;
+      })
+      .catch((err) => {
+        _chatbotHistoryPromise = null;
+        throw err;
+      });
+
+    return _chatbotHistoryPromise;
+  },
+
+  /**
+   * Notify chatbot about data changes in the dashboard
+   */
+  notifyChanges: async (changes: string[]) => {
+    const response = await apiClient.post(`${CHATBOT_BASE_URL}/chat/notify_changes`, { changes });
+    return response.data;
+  },
+
+  /**
+   * Health check for chatbot service
+   */
+  healthCheck: async () => {
+    const response = await apiClient.get(`${CHATBOT_BASE_URL}/health`);
+    return response.data;
+  },
+
+  /**
+   * Get current user info from chatbot service
+   */
+  getMe: async () => {
+    const response = await apiClient.get(`${CHATBOT_BASE_URL}/me`);
     return response.data;
   },
 };

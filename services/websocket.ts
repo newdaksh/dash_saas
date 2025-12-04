@@ -26,6 +26,7 @@ export const WebSocketEventType = {
   USER_INVITED: 'USER_INVITED',
   USER_JOINED: 'USER_JOINED',
   USER_UPDATED: 'USER_UPDATED',
+  USER_PROFILE_UPDATED: 'USER_PROFILE_UPDATED',
   
   // Invitation events
   INVITATION_RECEIVED: 'INVITATION_RECEIVED',
@@ -35,8 +36,14 @@ export const WebSocketEventType = {
   COMMENT_ADDED: 'COMMENT_ADDED',
   COMMENT_DELETED: 'COMMENT_DELETED',
   
+  // Task History events
+  TASK_HISTORY_UPDATED: 'TASK_HISTORY_UPDATED',
+  
   // Notification events
   NOTIFICATION: 'NOTIFICATION',
+  
+  // Chatbot events
+  CHATBOT_DB_CHANGE: 'CHATBOT_DB_CHANGE',
   
   // System events
   CONNECTION_ESTABLISHED: 'CONNECTION_ESTABLISHED',
@@ -186,7 +193,7 @@ class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      console.log('WebSocket: Received message', message.type);
+      console.log('WebSocket: Received message', message.type, message);
 
       // Call global handlers
       this.globalHandlers.forEach(handler => {
@@ -200,6 +207,7 @@ class WebSocketService {
       // Call type-specific handlers
       const handlers = this.messageHandlers.get(message.type);
       if (handlers) {
+        console.log(`WebSocket: Found ${handlers.size} handler(s) for ${message.type}`);
         handlers.forEach(handler => {
           try {
             handler(message);
@@ -207,6 +215,8 @@ class WebSocketService {
             console.error(`WebSocket: Error in handler for ${message.type}`, err);
           }
         });
+      } else {
+        console.warn(`WebSocket: No handlers registered for message type: ${message.type}`);
       }
     } catch (error) {
       console.error('WebSocket: Failed to parse message', error);

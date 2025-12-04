@@ -24,7 +24,8 @@ export interface User {
   company_ids?: string[];  // Array of all company IDs
   current_company_id?: string;  // Currently active company
   current_company_name?: string;
-  avatar_url?: string;
+  avatar_url?: string;  // Avatar URL from API
+  avatarUrl?: string;   // Alias for backwards compatibility
   status: 'Active' | 'Invited';
   role: 'Admin' | 'Member' | 'Viewer';
   user_type: UserType; // 'admin' for company admins, 'user' for individual users
@@ -74,6 +75,45 @@ export interface Comment {
   created_at: string;
 }
 
+export interface Collaborator {
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+}
+
+// Task History types
+export type HistoryActionType = 
+  | 'created'
+  | 'updated'
+  | 'status_changed'
+  | 'priority_changed'
+  | 'assignee_changed'
+  | 'due_date_changed'
+  | 'project_changed'
+  | 'title_changed'
+  | 'description_changed'
+  | 'collaborators_changed';
+
+export interface TaskHistory {
+  id: string;
+  task_id: string;
+  action: HistoryActionType;
+  field_name?: string;
+  old_value?: any;
+  new_value?: any;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  company_id?: string;
+  created_at: string;
+  created_at_ist: string;  // IST formatted timestamp
+}
+
+export interface TaskHistoryResponse {
+  history: TaskHistory[];
+  total: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -84,6 +124,7 @@ export interface Task {
   assignee_id: string; // The person doing the task
   assignee_name: string;
   assignee_avatar?: string;
+  collaborators?: Collaborator[]; // Multiple collaborators from the same company
   creator_id: string; // The person who assigned the task
   project_id?: string;
   project_name?: string;

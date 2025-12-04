@@ -55,11 +55,11 @@ export const Sidebar: React.FC = () => {
              <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 to-purple-600 rounded-2xl opacity-0 group-hover:opacity-30 blur transition duration-500"></div>
              <div className="relative px-4 py-4 bg-slate-800/50 backdrop-blur-sm rounded-2xl flex items-center gap-3 border border-slate-700/50 hover:border-slate-600 transition-colors">
                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-slate-800 overflow-hidden">
-                  {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                  {user.avatar_url ? <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
                </div>
                <div className="overflow-hidden flex-1">
                   <p className="text-sm font-semibold text-white truncate group-hover:text-brand-300 transition-colors">{user.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{user.companyName}</p>
+                  <p className="text-xs text-slate-400 truncate">{user.current_company_name || user.company_name}</p>
                </div>
                <ChevronRight size={14} className="text-slate-600 group-hover:text-slate-300 transition-colors group-hover:translate-x-0.5" />
              </div>
@@ -73,7 +73,7 @@ export const Sidebar: React.FC = () => {
             className="flex justify-center cursor-pointer"
           >
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-slate-800 overflow-hidden hover:ring-brand-500 transition-all">
-              {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+              {user.avatar_url ? <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" /> : user.name.charAt(0)}
             </div>
           </div>
         )}

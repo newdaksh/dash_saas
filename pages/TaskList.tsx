@@ -3,12 +3,15 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
-import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock, Users, List, Kanban } from 'lucide-react';
 import { Button } from '../components/Button';
 import { TaskPanel } from '../components/TaskPanel';
+import { BoardView } from '../components/BoardView';
+import { CalendarView } from '../components/CalendarView';
 
 type SortOption = 'default' | 'dueDate' | 'priority';
 type DateFilter = 'all' | 'today' | 'week' | 'overdue';
+type ViewMode = 'list' | 'board' | 'calendar';
 
 // Separate component for editable task row to isolate re-renders
 const TaskTitleInput: React.FC<{
@@ -104,6 +107,7 @@ export const TaskList: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [search, setSearch] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   
   // State to track which task should be auto-focused (for new tasks)
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
@@ -281,10 +285,17 @@ export const TaskList: React.FC = () => {
     }
   }, [handleCreateTask]);
 
+  const handleStatusChange = async (taskId: string, newStatus: Status | string) => {
+    const task = filteredTasks.find(t => t.id === taskId);
+    if (task) {
+      await updateTask({ ...task, status: newStatus as Status });
+    }
+  };
+
   return (
-    <div className="relative h-full flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="relative min-h-full flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       
-      <div className="flex-1 flex flex-col space-y-4 relative z-10 p-6">
+      <div className="flex-1 flex flex-col space-y-4 relative z-10 p-6 pb-8">
         
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -303,6 +314,48 @@ export const TaskList: React.FC = () => {
             <Plus size={16} className="mr-2" />
             Add Task
           </Button>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-fit">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+              viewMode === 'list'
+                ? 'bg-brand-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title="List View"
+          >
+            <List size={18} />
+            <span className="text-sm font-medium hidden sm:inline">List</span>
+          </button>
+          
+          <button
+            onClick={() => setViewMode('board')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+              viewMode === 'board'
+                ? 'bg-brand-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title="Board View"
+          >
+            <Kanban size={18} />
+            <span className="text-sm font-medium hidden sm:inline">Board</span>
+          </button>
+          
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-brand-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title="Calendar View"
+          >
+            <Calendar size={18} />
+            <span className="text-sm font-medium hidden sm:inline">Calendar</span>
+          </button>
         </div>
 
         {/* Controls Bar */}
@@ -419,10 +472,11 @@ export const TaskList: React.FC = () => {
         {/* Glass List View */}
         <div className="flex-1 animate-slide-up pb-6 md:pb-12" style={{ animationDelay: '0.2s' }}>
           
-          {/* List Content */}
-          <div className="space-y-2 md:space-y-3">
-            {filteredTasks.length > 0 ? (
-              filteredTasks.map((task, idx) => (
+          {viewMode === 'list' && (
+            // List View
+            <div className="space-y-2 md:space-y-3">
+              {filteredTasks.length > 0 ? (
+                filteredTasks.map((task, idx) => (
                 <div 
                   key={task.id} 
                   onClick={() => handleRowClick(task)}
@@ -504,6 +558,14 @@ export const TaskList: React.FC = () => {
                         </div>
                      </div>
                      <span className="text-xs pr-6 font-medium text-slate-600 truncate hidden lg:block group-hover:text-slate-900 transition-colors">{task.assignee_name}</span>
+                     
+                     {/* Collaborators indicator */}
+                     {task.collaborators && task.collaborators.length > 0 && (
+                       <div className="hidden lg:flex items-center gap-1 ml-1" title={task.collaborators.map(c => c.user_name).join(', ')}>
+                         <Users size={12} className="text-teal-500" />
+                         <span className="text-[10px] text-teal-600 font-medium">+{task.collaborators.length}</span>
+                       </div>
+                     )}
                   </div>
 
                   {/* Priority & Action */}
@@ -535,7 +597,27 @@ export const TaskList: React.FC = () => {
                 </Button>
               </div>
             )}
-          </div>
+            </div>
+          )}
+
+          {viewMode === 'board' && (
+            // Board View
+            <BoardView 
+              tasks={filteredTasks}
+              selectedTaskId={selectedTaskId}
+              onSelectTask={(taskId) => setSelectedTaskId(taskId)}
+              onStatusChange={handleStatusChange}
+            />
+          )}
+
+          {viewMode === 'calendar' && (
+            // Calendar View
+            <CalendarView
+              tasks={filteredTasks}
+              selectedTaskId={selectedTaskId}
+              onSelectTask={(taskId) => setSelectedTaskId(taskId)}
+            />
+          )}
         </div>
       </div>
 

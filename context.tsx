@@ -1,7 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+<<<<<<< HEAD
 import { User, Task, Project, Invitation, Notification, UserType, Comment } from './types';
 import { authAPI, userAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
+=======
+import { User, Task, Project, Invitation, Notification, UserType } from './types';
+import { authAPI, userAPI, profileAPI, taskAPI, projectAPI, invitationAPI, setTokens, getAccessToken, setUserData, getUserData, clearTokens } from './services/api';
+>>>>>>> ef31d7dded2c3d6e7ad259c11361e89d7c193073
 import { websocketService, WebSocketEventType, WebSocketMessage } from './services/websocket';
 
 // Comment event types for real-time updates
@@ -32,7 +37,7 @@ interface AppContextType {
   userRegister: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   // Tasks
-  addTask: (task: Partial<Task>) => Promise<Task | undefined>;
+  addTask: (task: Partial<Task> & { collaborator_ids?: string[] }) => Promise<Task | undefined>;
   updateTask: (task: Task) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   // Projects
@@ -91,51 +96,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
-  // Load current user on mount if token exists
-  useEffect(() => {
-    const initializeApp = async () => {
-      const token = getAccessToken();
-      if (token) {
-        try {
-          setLoading(true);
-          // First try to get user from session storage for quick recovery
-          const cachedUser = getUserData();
-          if (cachedUser) {
-            setUser(cachedUser);
-          }
-          
-          // Then verify with API and update
-          const userData = await authAPI.getCurrentUser();
-          console.log('Current user data:', userData);
-          
-          // Preserve the user_type from cached data if it exists
-          // This ensures users stay in user portal after refresh
-          const userWithType = {
-            ...userData,
-            user_type: cachedUser?.user_type || userData.user_type
-          };
-          
-          setUser(userWithType);
-          setUserData(userWithType); // Cache for session recovery
-          
-          // Call the appropriate refresh function based on user type
-          if (userWithType.user_type === 'user') {
-            await refreshUserData();
-          } else {
-            await refreshData();
-          }
-        } catch (err: any) {
-          console.error('Failed to initialize app:', err);
-          setError(err.message);
-          authAPI.logout();
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
-    };
+  const realtimeRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshDataRef = useRef<(() => Promise<void>) | null>(null);
 
+<<<<<<< HEAD
     initializeApp();
   }, []);
 
@@ -360,6 +324,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user?.id, emitCommentEvent]); // Re-run when user changes
 
   const refreshData = async () => {
+=======
+  const refreshData = useCallback(async () => {
+>>>>>>> ef31d7dded2c3d6e7ad259c11361e89d7c193073
     console.log('Starting refreshData...');
     try {
       const usersPromise = userAPI.getAll().catch(err => { 
@@ -416,7 +383,537 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.error('Failed to refresh data:', err, err.stack);
       setError(err.message);
     }
-  };
+  }, []);
+
+  // Store refreshData in ref so scheduleRealtimeRefresh doesn't need it as dependency
+  useEffect(() => {
+    refreshDataRef.current = refreshData;
+  }, [refreshData]);
+
+  const refreshUserData = useCallback(async () => {
+    console.log('Refreshing user portal data...');
+    try {
+      const tasksPromise = taskAPI.getAll({ all_companies: true }).catch(err => {
+        console.error('Tasks API error:', err);
+        return [];
+      });
+
+      const receivedInvitationsPromise = invitationAPI.getReceived().catch(err => {
+        console.error('Received Invitations API error:', err);
+        return [];
+      });
+
+      const [tasksData, receivedInvitations] = await Promise.all([tasksPromise, receivedInvitationsPromise]);
+
+      if (Array.isArray(tasksData)) {
+        console.log('Setting tasks from all companies:', tasksData.length);
+        setTasks(tasksData);
+      }
+
+      if (Array.isArray(receivedInvitations)) {
+        console.log('Setting received invitations:', receivedInvitations.length);
+        setInvitations(receivedInvitations);
+      }
+    } catch (err: any) {
+      console.error('Failed to refresh user data:', err);
+    }
+  }, []);
+
+  // Store refreshUserData in ref for user portal refreshes
+  const refreshUserDataRef = useRef<(() => Promise<void>) | null>(null);
+  const userRef = useRef<User | null>(null);
+  
+  useEffect(() => {
+    refreshUserDataRef.current = refreshUserData;
+  }, [refreshUserData]);
+  
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const scheduleRealtimeRefresh = useCallback((reason: string) => {
+    console.log(`[Realtime Sync] Schedule requested for: ${reason}`);
+    
+    // For chatbot changes, allow refresh even if one is pending (cancel existing)
+    if (reason === 'CHATBOT_DB_CHANGE' && realtimeRefreshTimeoutRef.current) {
+      console.log(`[Realtime Sync] Chatbot change - resetting timer for immediate refresh`);
+      clearTimeout(realtimeRefreshTimeoutRef.current);
+      realtimeRefreshTimeoutRef.current = null;
+    } else if (realtimeRefreshTimeoutRef.current) {
+      console.log(`[Realtime Sync] Already scheduled, skipping duplicate`);
+      return;
+    }
+
+    // Use shorter delay for chatbot changes for more responsive UI
+    const delay = reason === 'CHATBOT_DB_CHANGE' ? 100 : 300;
+    console.log(`[Realtime Sync] Setting timeout for ${reason} (delay: ${delay}ms)`);
+    
+    realtimeRefreshTimeoutRef.current = setTimeout(async () => {
+      console.log(`[Realtime Sync] Timeout fired! Clearing ref and refreshing for ${reason}`);
+      realtimeRefreshTimeoutRef.current = null;
+      try {
+        // Determine which refresh function to call based on user type
+        const currentUser = userRef.current;
+        const isUserPortal = currentUser?.user_type === 'user';
+        
+        console.log(`[Realtime Sync] User type: ${currentUser?.user_type}, isUserPortal: ${isUserPortal}`);
+        
+        if (isUserPortal && refreshUserDataRef.current) {
+          console.log(`[Realtime Sync] Calling refreshUserData() due to ${reason}`);
+          await refreshUserDataRef.current();
+          console.log(`[Realtime Sync] ✓ refreshUserData() completed successfully`);
+        } else if (refreshDataRef.current) {
+          console.log(`[Realtime Sync] Calling refreshData() due to ${reason}`);
+          await refreshDataRef.current();
+          console.log(`[Realtime Sync] ✓ refreshData() completed successfully`);
+        } else {
+          console.error(`[Realtime Sync] ✗ No refresh function available!`);
+        }
+      } catch (err) {
+        console.error('[Realtime Sync] ✗ Refresh failed:', err);
+      }
+    }, delay);
+    console.log(`[Realtime Sync] Timeout set with ID:`, realtimeRefreshTimeoutRef.current);
+  }, []); // Empty deps array since we use refs
+
+  useEffect(() => {
+    return () => {
+      if (realtimeRefreshTimeoutRef.current) {
+        clearTimeout(realtimeRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Load current user on mount if token exists
+  useEffect(() => {
+    const initializeApp = async () => {
+      const token = getAccessToken();
+      if (token) {
+        try {
+          setLoading(true);
+          // First try to get user from session storage for quick recovery
+          const cachedUser = getUserData();
+          if (cachedUser) {
+            setUser(cachedUser);
+          }
+          
+          // Then verify with API and update
+          const userData = await authAPI.getCurrentUser();
+          console.log('Current user data:', userData);
+          
+          // Preserve the user_type from cached data if it exists
+          // This ensures users stay in user portal after refresh
+          const userWithType = {
+            ...userData,
+            user_type: cachedUser?.user_type || userData.user_type
+          };
+          
+          setUser(userWithType);
+          setUserData(userWithType); // Cache for session recovery
+          
+          // Call the appropriate refresh function based on user type
+          if (userWithType.user_type === 'user') {
+            await refreshUserData();
+          } else {
+            await refreshData();
+          }
+        } catch (err: any) {
+          console.error('Failed to initialize app:', err);
+          setError(err.message);
+          authAPI.logout();
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, [refreshData, refreshUserData]);
+
+  // WebSocket connection and event handling
+  useEffect(() => {
+    if (!user) {
+      // Disconnect WebSocket when user logs out
+      websocketService.disconnect();
+      return;
+    }
+
+    // Connect to WebSocket when user is logged in
+    websocketService.connect();
+
+    // Handle task events
+    const unsubTaskCreated = websocketService.on(WebSocketEventType.TASK_CREATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task created', message.payload);
+      setTasks(prev => {
+        // Avoid duplicates
+        if (prev.some(t => t.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+      scheduleRealtimeRefresh('TASK_CREATED');
+    });
+
+    const unsubTaskUpdated = websocketService.on(WebSocketEventType.TASK_UPDATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task updated', message.payload);
+      setTasks(prev => prev.map(task => 
+        task.id === message.payload.id ? { ...task, ...message.payload } : task
+      ));
+      scheduleRealtimeRefresh('TASK_UPDATED');
+    });
+
+    const unsubTaskAssigned = websocketService.on(WebSocketEventType.TASK_ASSIGNED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task assigned to you', message.payload);
+      // Add notification for assigned task
+      const newNotification: Notification = {
+        id: `notif-${Date.now()}`,
+        type: 'task_assigned',
+        message: message.payload.message || `Task "${message.payload.title}" has been assigned to you`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Also update/add the task
+      setTasks(prev => {
+        const existingIndex = prev.findIndex(t => t.id === message.payload.id);
+        if (existingIndex >= 0) {
+          // Update existing task
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], ...message.payload };
+          return updated;
+        } else {
+          // Add new task
+          return [message.payload, ...prev];
+        }
+      });
+      scheduleRealtimeRefresh('TASK_ASSIGNED');
+    });
+
+    const unsubTaskDeleted = websocketService.on(WebSocketEventType.TASK_DELETED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Task deleted', message.payload);
+      setTasks(prev => prev.filter(task => task.id !== message.payload.task_id));
+      scheduleRealtimeRefresh('TASK_DELETED');
+    });
+
+    // Handle project events
+    const unsubProjectCreated = websocketService.on(WebSocketEventType.PROJECT_CREATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project created', message.payload);
+      setProjects(prev => {
+        // Avoid duplicates
+        if (prev.some(p => p.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+    });
+
+    const unsubProjectUpdated = websocketService.on(WebSocketEventType.PROJECT_UPDATED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project updated', message.payload);
+      setProjects(prev => prev.map(project => 
+        project.id === message.payload.id ? { ...project, ...message.payload } : project
+      ));
+    });
+
+    const unsubProjectDeleted = websocketService.on(WebSocketEventType.PROJECT_DELETED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Project deleted', message.payload);
+      setProjects(prev => prev.filter(project => project.id !== message.payload.project_id));
+    });
+
+    // Handle comment events
+    const unsubCommentAdded = websocketService.on(WebSocketEventType.COMMENT_ADDED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Comment added', message.payload);
+      // You could add a notification or update task comments here
+    });
+
+    // Handle invitation events (for users receiving invitations)
+    const unsubUserInvited = websocketService.on(WebSocketEventType.USER_INVITED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Invitation received', message.payload);
+      // Add the invitation to the list
+      setInvitations(prev => {
+        // Avoid duplicates
+        if (prev.some(inv => inv.id === message.payload.id)) return prev;
+        return [message.payload, ...prev];
+      });
+      // Create a notification
+      const newNotification: Notification = {
+        id: `notif-inv-${Date.now()}`,
+        type: 'invitation',
+        message: message.payload.message || `You have been invited to join ${message.payload.company_name}`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      // Schedule a data refresh to ensure UI is in sync
+      scheduleRealtimeRefresh('USER_INVITED');
+    });
+
+    // Handle invitation response events (for admins who sent invitations)
+    const unsubInvitationResponse = websocketService.on(WebSocketEventType.INVITATION_RESPONSE, (message: WebSocketMessage) => {
+      console.log('WebSocket: Invitation response received', message.payload);
+      const isAccepted = message.payload.action === 'accept';
+      const action = isAccepted ? 'accepted' : 'declined';
+      
+      // Update the invitation status in the list
+      setInvitations(prev => prev.map(inv => 
+        inv.id === message.payload.id ? { ...inv, status: message.payload.status } : inv
+      ));
+      
+      // Create a notification for the admin with appropriate styling info
+      const newNotification: Notification = {
+        id: `notif-inv-resp-${Date.now()}`,
+        type: 'invitation_response',
+        message: message.payload.message || `${message.payload.invitee_email} has ${action} your invitation`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: {
+          ...message.payload,
+          isAccepted: isAccepted,
+          isDeclined: !isAccepted
+        },
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Log for debugging
+      console.log(`Invitation ${action}:`, message.payload.invitee_email);
+    });
+
+    // Handle user joined (when a user accepts an invitation)
+    const unsubUserJoined = websocketService.on(WebSocketEventType.USER_JOINED, (message: WebSocketMessage) => {
+      console.log('WebSocket: User joined company', message.payload);
+      
+      // Refresh users list to show the new user
+      refreshData();
+      
+      // Create a notification for admin
+      const newNotification: Notification = {
+        id: `notif-user-joined-${Date.now()}`,
+        type: 'user_joined',
+        message: message.payload.message || `${message.payload.user_email} has joined the company`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: {
+          ...message.payload,
+          isAccepted: true
+        },
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+    });
+
+    // Handle user profile updates (when any user in the company updates their profile)
+    const unsubUserProfileUpdated = websocketService.on(WebSocketEventType.USER_PROFILE_UPDATED, (message: WebSocketMessage) => {
+      console.log('✓ WebSocket: User profile updated received', message.payload);
+      
+      const updatedUserData = message.payload;
+      
+      // Update the user in the users list
+      setUsers(prev => prev.map(u => 
+        u.id === updatedUserData.id ? { ...u, ...updatedUserData } : u
+      ));
+      
+      // If this is the current user, update their data too
+      if (userRef.current && userRef.current.id === updatedUserData.id) {
+        console.log('✓ Profile update is for current user, updating state immediately');
+        const updatedCurrentUser = { ...userRef.current, ...updatedUserData };
+        setUser(updatedCurrentUser);
+        setUserData(updatedCurrentUser);
+        console.log('✓ Current user state updated:', updatedCurrentUser);
+      } else {
+        console.log('✓ Profile update is for another user:', updatedUserData.id);
+      }
+      
+      // Schedule a full refresh to ensure consistency
+      scheduleRealtimeRefresh('USER_PROFILE_UPDATED');
+    });
+
+    // Handle connection established
+    const unsubConnected = websocketService.on(WebSocketEventType.CONNECTION_ESTABLISHED, (message: WebSocketMessage) => {
+      console.log('WebSocket: Connection established', message.payload);
+    });
+
+    // Handle PONG responses (heartbeat)
+    const unsubPong = websocketService.on(WebSocketEventType.PONG, (message: WebSocketMessage) => {
+      // Silent - just acknowledge the pong
+    });
+
+    // Handle chatbot database changes
+    const unsubChatbotDbChange = websocketService.on(WebSocketEventType.CHATBOT_DB_CHANGE, (message: WebSocketMessage) => {
+      console.log('🤖 [CHATBOT] WebSocket: Chatbot made DB change', message.payload);
+      console.log('🤖 [CHATBOT] Change type:', message.payload?.change_type);
+      console.log('🤖 [CHATBOT] Details:', message.payload?.details);
+      
+      const changeType = message.payload?.change_type?.toLowerCase() || '';
+      const details = message.payload?.details || {};
+      
+      // Handle immediate UI updates based on change type for better UX
+      if (changeType.includes('task')) {
+        if (changeType === 'task_created' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task created by chatbot, will refresh tasks');
+        } else if (changeType === 'task_deleted' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task deleted by chatbot, removing from state');
+          setTasks(prev => prev.filter(t => t.id !== details.task_id));
+        } else if (changeType === 'task_due_date_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task due date updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, due_date: details.new_due_date } 
+              : t
+          ));
+        } else if (changeType === 'task_status_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task status updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, status: details.new_status } 
+              : t
+          ));
+        } else if (changeType === 'task_priority_updated' && details.task_id) {
+          console.log('🤖 [CHATBOT] Task priority updated by chatbot');
+          setTasks(prev => prev.map(t => 
+            t.id === details.task_id 
+              ? { ...t, priority: details.new_priority } 
+              : t
+          ));
+        } else if (changeType.includes('status') || changeType.includes('priority') || changeType.includes('project')) {
+          console.log('🤖 [CHATBOT] Task updated by chatbot');
+        }
+      } else if (changeType.includes('project')) {
+        console.log('🤖 [CHATBOT] Project change detected:', changeType);
+        // Handle project-specific changes
+        if (changeType === 'project_deleted' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project deleted by chatbot, removing from state');
+          setProjects(prev => prev.filter(p => p.id !== details.project_id));
+          // Also update tasks that belonged to this project
+          setTasks(prev => prev.map(t => 
+            t.project_id === details.project_id 
+              ? { ...t, project_id: undefined, project_name: undefined } 
+              : t
+          ));
+        } else if (changeType === 'project_name_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project name updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, name: details.new_name } 
+              : p
+          ));
+          // Also update project_name in related tasks
+          setTasks(prev => prev.map(t => 
+            t.project_id === details.project_id 
+              ? { ...t, project_name: details.new_name } 
+              : t
+          ));
+        } else if (changeType === 'project_status_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project status updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, status: details.new_status } 
+              : p
+          ));
+        } else if (changeType === 'project_client_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project client updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, client_name: details.new_client } 
+              : p
+          ));
+        } else if (changeType === 'project_owner_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project owner updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, owner_name: details.new_owner } 
+              : p
+          ));
+        } else if (changeType === 'project_deadline_updated' && details.project_id) {
+          console.log('🤖 [CHATBOT] Project deadline updated by chatbot');
+          setProjects(prev => prev.map(p => 
+            p.id === details.project_id 
+              ? { ...p, due_date: details.new_deadline === 'None' ? null : details.new_deadline } 
+              : p
+          ));
+        } else if (changeType === 'project_task_added' || changeType === 'project_task_removed') {
+          console.log('🤖 [CHATBOT] Project task association changed');
+        }
+      } else if (changeType.includes('invitation')) {
+        console.log('🤖 [CHATBOT] Invitation change detected');
+      } else if (changeType === 'user_profile_updated') {
+        console.log('🤖 [CHATBOT] User profile updated by chatbot');
+        const userId = details.user_id;
+        const updates = details.updates || [];
+        
+        if (userId && userRef.current && userRef.current.id === userId) {
+          console.log('🤖 [CHATBOT] This is the current user, fetching fresh profile data');
+          
+          // Immediately fetch fresh user data from the server
+          try {
+            profileAPI.getMyProfile().then((freshUserData: any) => {
+              console.log('🤖 [CHATBOT] Fresh profile data received:', freshUserData);
+              const updatedUser = { ...userRef.current, ...freshUserData };
+              setUser(updatedUser);
+              setUserData(updatedUser);
+              console.log('🤖 [CHATBOT] ✓ Profile state updated immediately');
+            }).catch((err: any) => {
+              console.error('🤖 [CHATBOT] ✗ Failed to fetch fresh profile:', err);
+            });
+          } catch (err) {
+            console.error('🤖 [CHATBOT] ✗ Error fetching profile:', err);
+          }
+        } else if (userId) {
+          console.log('🤖 [CHATBOT] Profile update for another user:', userId);
+        }
+      }
+      
+      // Create notification for user about chatbot action
+      const newNotification: Notification = {
+        id: `notif-chatbot-${Date.now()}`,
+        type: 'system',
+        message: message.payload?.message || `Chatbot: ${changeType.replace(/_/g, ' ')}`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: message.payload,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Refresh all data when chatbot makes any database change
+      scheduleRealtimeRefresh('CHATBOT_DB_CHANGE');
+    });
+
+    // Also register a global handler to catch any chatbot-related messages
+    // in case the backend emits a slightly different event name.
+    const unsubAll = websocketService.on('all', (message: WebSocketMessage) => {
+      try {
+        console.log('WebSocket [ALL HANDLER] Received message type:', message.type, message.payload);
+        const typeStr = String(message.type || '').toUpperCase();
+        if (typeStr === WebSocketEventType.CHATBOT_DB_CHANGE || typeStr.includes('CHATBOT')) {
+          console.log('WebSocket [ALL HANDLER] Detected chatbot DB change, scheduling refresh');
+          scheduleRealtimeRefresh('CHATBOT_DB_CHANGE');
+        }
+      } catch (err) {
+        console.error('WebSocket [ALL HANDLER] Error handling message', err);
+      }
+    });
+
+    console.log('✓ WebSocket listeners initialized, including CHATBOT_DB_CHANGE');
+    console.log('✓ Registered event types:', Object.keys(WebSocketEventType));
+
+    // Cleanup on unmount or user change
+    return () => {
+      unsubTaskCreated();
+      unsubTaskUpdated();
+      unsubTaskAssigned();
+      unsubTaskDeleted();
+      unsubProjectCreated();
+      unsubProjectUpdated();
+      unsubProjectDeleted();
+      unsubCommentAdded();
+      unsubUserInvited();
+      unsubInvitationResponse();
+      unsubUserJoined();
+      unsubUserProfileUpdated();
+      unsubConnected();
+      unsubPong();
+      unsubChatbotDbChange();
+      unsubAll();
+    };
+  }, [user?.id]); // scheduleRealtimeRefresh is stable now (empty deps), so no need to include it
 
   const login = async (email: string, password: string) => {
     try {
@@ -592,39 +1089,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Refresh data for user portal (invitations, notifications, assigned tasks)
-  const refreshUserData = async () => {
-    console.log('Refreshing user portal data...');
-    try {
-      // Fetch tasks from all companies user belongs to
-      const tasksPromise = taskAPI.getAll({ all_companies: true }).catch(err => {
-        console.error('Tasks API error:', err);
-        return [];
-      });
-
-      const receivedInvitationsPromise = invitationAPI.getReceived().catch(err => {
-        console.error('Received Invitations API error:', err);
-        return [];
-      });
-
-      const [tasksData, receivedInvitations] = await Promise.all([tasksPromise, receivedInvitationsPromise]);
-
-      if (Array.isArray(tasksData)) {
-        console.log('Setting tasks from all companies:', tasksData.length);
-        setTasks(tasksData);
-      }
-
-      if (Array.isArray(receivedInvitations)) {
-        console.log('Setting received invitations:', receivedInvitations.length);
-        setInvitations(receivedInvitations);
-      }
-
-      // Notifications are fetched from a real API in production
-      // For now, keep notifications empty - they will be populated when admins send invitations
-      // The invitations list itself serves as the source of pending invitations to display
-    } catch (err: any) {
-      console.error('Failed to refresh user data:', err);
-    }
-  };
+  // Notifications are fetched from a real API in production
+  // For now, keep notifications empty - they will be populated when admins send invitations
+  // The invitations list itself serves as the source of pending invitations to display
 
   // ==================== Invitation Management ====================
 
@@ -734,8 +1201,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     try {
       setError(null);
-      const updatedUser = await userAPI.update(user.id, data);
-      setUser(updatedUser);
+      // Use profileAPI for self-updates which supports avatar upload
+      const updatedUser = await profileAPI.updateMyProfile({
+        name: data.name,
+        email: data.email,
+        avatar_url: data.avatar_url
+      });
+      
+      // Preserve user_type when updating
+      const userWithType = { ...updatedUser, user_type: user.user_type };
+      setUser(userWithType);
+      setUserData(userWithType);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     } catch (err: any) {
       console.error('Failed to update user:', err);
@@ -784,7 +1260,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addTask = async (task: Partial<Task>): Promise<Task | undefined> => {
+  const addTask = async (task: Partial<Task> & { collaborator_ids?: string[] }): Promise<Task | undefined> => {
     if (!user) return undefined;
     
     try {
@@ -797,6 +1273,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         due_date: task.due_date || null,
         assignee_id: task.assignee_id || user.id,
         project_id: task.project_id || null,
+        collaborator_ids: task.collaborator_ids || [],
       });
       setTasks(prev => [newTask, ...prev]);
       return newTask;
@@ -810,6 +1287,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateTask = async (updatedTask: Task) => {
     try {
       setError(null);
+      // Extract collaborator IDs from the collaborators array
+      const collaborator_ids = updatedTask.collaborators?.map(c => c.user_id) || [];
       const updated = await taskAPI.update(updatedTask.id, {
         title: updatedTask.title,
         description: updatedTask.description,
@@ -818,6 +1297,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         due_date: updatedTask.due_date,
         assignee_id: updatedTask.assignee_id,
         project_id: updatedTask.project_id,
+        collaborator_ids: collaborator_ids,
       });
       setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
     } catch (err: any) {
