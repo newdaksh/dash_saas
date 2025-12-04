@@ -48,6 +48,7 @@ export const clearUserData = (): void => {
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Allow cookies/credentials in CORS requests
   headers: {
     'Content-Type': 'application/json',
   },

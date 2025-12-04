@@ -318,6 +318,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshData = async () => {
     console.log('Starting refreshData...');
     try {
+      // Check if user is still logged in
+      if (!getAccessToken()) {
+        console.warn('No access token available, skipping refreshData');
+        return;
+      }
+      
       const usersPromise = userAPI.getAll().catch(err => { 
         console.error('Users API error:', err); 
         return []; 
@@ -382,6 +388,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshUserData = useCallback(async () => {
     console.log('Refreshing user portal data...');
     try {
+      // Check if user is still logged in
+      if (!getAccessToken()) {
+        console.warn('No access token available, skipping refreshUserData');
+        return;
+      }
+      
       const tasksPromise = taskAPI.getAll({ all_companies: true }).catch(err => {
         console.error('Tasks API error:', err);
         return [];
@@ -480,6 +492,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (token) {
         try {
           setLoading(true);
+          setError(null);
+          
           // First try to get user from session storage for quick recovery
           const cachedUser = getUserData();
           if (cachedUser) {
@@ -499,19 +513,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           setUser(userWithType);
           setUserData(userWithType); // Cache for session recovery
+          setLoading(false); // Set loading to false BEFORE refreshing data
           
           // Call the appropriate refresh function based on user type
-          if (userWithType.user_type === 'user') {
-            await refreshUserData();
-          } else {
-            await refreshData();
-          }
+          // Add a small delay to ensure state is updated
+          setTimeout(() => {
+            if (userWithType.user_type === 'user') {
+              refreshUserData().catch(err => console.error('Failed to refresh user data:', err));
+            } else {
+              refreshData().catch(err => console.error('Failed to refresh data:', err));
+            }
+          }, 100);
         } catch (err: any) {
           console.error('Failed to initialize app:', err);
           setError(err.message);
-          authAPI.logout();
-        } finally {
           setLoading(false);
+          authAPI.logout();
         }
       } else {
         setLoading(false);
@@ -519,7 +536,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     initializeApp();
-  }, [refreshData, refreshUserData]);
+  }, []);
 
   // WebSocket connection and event handling
   useEffect(() => {
