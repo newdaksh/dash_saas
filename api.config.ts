@@ -5,8 +5,9 @@
 
 // Backend API Base URL
 // Prefer Vite env `VITE_API_BASE_URL` if present, else fall back to prod URL
+// The Render deployment slug uses a zero (g0gm), so make sure the default matches the live API
 export const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL || 'https://nexus-backend-ggm.onrender.com';
+  (import.meta as any).env?.VITE_API_BASE_URL || 'https://nexus-backend-g0gm.onrender.com';
 
 // WebSocket URL - derive from API_BASE_URL replacing http/https with ws/wss
 export const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
