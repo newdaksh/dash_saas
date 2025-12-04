@@ -48,7 +48,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
   const [history, setHistory] = useState<TaskHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  
+
   // Local form state for editing (completely independent of API calls)
   const [localTask, setLocalTask] = useState<Task | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -111,7 +111,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
   // WebSocket listener for real-time history updates
   useEffect(() => {
     if (!task) return;
-    
+
     const unsubscribe = websocketService.on(WebSocketEventType.TASK_HISTORY_UPDATED, (message) => {
       // Only update if this is for the current task and history is visible
       if (message.payload?.task_id === task.id && showHistory) {
@@ -137,7 +137,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
   // Save all changes to API
   const handleSave = async () => {
     if (!localTask || !hasChanges) return;
-    
+
     setIsSaving(true);
     try {
       await updateTask(localTask);
@@ -205,15 +205,15 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
       const created = await commentAPI.create(task.id, commentText.trim());
       setComments(prev => [...prev, created]);
       setCommentText('');
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const project_id = e.target.value || undefined;
     const project = projects.find(p => p.id === project_id);
-    updateLocalTask({ 
-        project_id, 
-        project_name: project?.name 
+    updateLocalTask({
+      project_id,
+      project_name: project?.name
     });
   };
 
@@ -236,8 +236,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity" 
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity"
           onClick={onClose}
           aria-label="Close task panel backdrop"
           role="button"
@@ -245,30 +245,30 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
       )}
 
       {/* Slide-over Panel */}
-      <div 
+      <div
         className={`fixed inset-y-0 right-0 z-50 w-full md:w-[600px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         aria-live="polite"
       >
         {/* Delete Confirmation Overlay */}
         {isDeleteConfirmOpen && (
-            <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in">
-                <div className="max-w-sm text-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                        <AlertTriangle size={32} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-800 mb-2">Delete this Task?</h3>
-                    <p className="text-slate-500 mb-6">Are you sure you want to delete <span className="font-semibold text-slate-800">"{task.title}"</span>? This action cannot be undone.</p>
-                    <div className="flex gap-3 justify-center">
-                        <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
-                        <Button variant="danger" onClick={handleDelete}>Delete Task</Button>
-                    </div>
-                </div>
+          <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 animate-fade-in">
+            <div className="max-w-sm text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Delete this Task?</h3>
+              <p className="text-slate-500 mb-6">Are you sure you want to delete <span className="font-semibold text-slate-800">"{task.title}"</span>? This action cannot be undone.</p>
+              <div className="flex gap-3 justify-center">
+                <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                <Button variant="danger" onClick={handleDelete}>Delete Task</Button>
+              </div>
             </div>
+          </div>
         )}
 
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <Button 
+          <Button
             variant={localTask.status === Status.DONE ? "ghost" : "outline"}
             className={`flex items-center gap-2 ${localTask.status === Status.DONE ? 'text-green-600 bg-green-50' : ''}`}
             onClick={handleStatusChange}
@@ -278,20 +278,22 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
           </Button>
           <div className="flex items-center gap-2">
             {/* Save/Discard buttons when there are changes - hidden in view-only mode */}
-            {!viewOnly && hasChanges && (
+            {!viewOnly && (
               <>
-                <Button 
-                  variant="outline" 
-                  onClick={handleDiscard}
-                  className="text-sm"
-                >
-                  Discard
-                </Button>
-                <Button 
-                  variant="primary" 
+                {hasChanges && (
+                  <Button
+                    variant="outline"
+                    onClick={handleDiscard}
+                    className="text-sm"
+                  >
+                    Discard
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
                   onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 text-sm"
+                  disabled={isSaving || !hasChanges}
+                  className={`flex items-center gap-2 text-sm ${!hasChanges ? 'opacity-50 cursor-not-allowed bg-slate-300 hover:bg-slate-300 border-slate-300 text-slate-500' : ''}`}
                 >
                   <Save size={16} />
                   {isSaving ? 'Saving...' : 'Save Changes'}
@@ -299,16 +301,16 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               </>
             )}
             {!viewOnly && (
-              <button 
-                  onClick={() => setIsDeleteConfirmOpen(true)}
-                  className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
-                  title="Delete Task"
+              <button
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full text-gray-400 transition-colors"
+                title="Delete Task"
               >
                 <Trash2 size={20} />
               </button>
             )}
             <div className="w-px h-6 bg-gray-200 mx-1"></div>
-            <button 
+            <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
               title="Close"
@@ -329,14 +331,14 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-          
+
           {/* Overdue Banner */}
           {isOverdue && (
             <div className="mb-6 bg-red-50 border border-red-100 rounded-lg p-4 flex items-start gap-3 animate-pulse">
               <AlertCircle className="text-red-600 mt-0.5 shrink-0" size={18} />
               <div>
-                 <h4 className="text-sm font-bold text-red-900">Overdue</h4>
-                 <p className="text-sm text-red-700 mt-0.5">This task was due on {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : ''}. Please update the status or due date.</p>
+                <h4 className="text-sm font-bold text-red-900">Overdue</h4>
+                <p className="text-sm text-red-700 mt-0.5">This task was due on {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : ''}. Please update the status or due date.</p>
               </div>
             </div>
           )}
@@ -358,8 +360,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               </span>
             ) : (
               <div className="relative">
-                <select 
-                  value={localTask.project_id || ''} 
+                <select
+                  value={localTask.project_id || ''}
                   onChange={handleProjectChange}
                   className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
                   aria-label="Select project"
@@ -378,7 +380,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               {localTask.title}
             </h2>
           ) : (
-            <input 
+            <input
               type="text"
               value={localTask.title}
               onChange={(e) => updateLocalTask({ title: e.target.value })}
@@ -389,57 +391,95 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
 
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
-            
-            {/* Company - shows which company this task belongs to */}
-            {localTask.company_name && (
-              <div className="flex flex-col gap-1 col-span-2">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
+
+            {/* Task Type - shows whether this is a personal or company task */}
+            <div className="flex flex-col gap-1 col-span-2">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Task Type</span>
+              {!viewOnly && user.company_ids && user.company_ids.length > 0 ? (
+                <div className="relative">
+                  <select
+                    value={localTask.company_id || ''}
+                    onChange={(e) => {
+                      const newCompanyId = e.target.value || null;
+                      if (newCompanyId) {
+                        const index = user.company_ids?.indexOf(newCompanyId);
+                        const newCompanyName = index !== undefined && index !== -1 && user.company_names ? user.company_names[index] : null;
+                        updateLocalTask({
+                          company_id: newCompanyId,
+                          company_name: newCompanyName
+                        });
+                      } else {
+                        // Personal mode - no company
+                        updateLocalTask({
+                          company_id: null,
+                          company_name: null,
+                          project_id: undefined,
+                          project_name: undefined
+                        });
+                      }
+                    }}
+                    className="appearance-none w-full bg-purple-50 border border-transparent hover:border-purple-200 text-purple-700 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block px-3 py-1.5 font-medium transition-colors cursor-pointer pl-9"
+                    aria-label="Select task type"
+                  >
+                    <option value="" className="bg-white text-slate-900">Personal</option>
+                    {user.company_ids.map((id, idx) => (
+                      <option key={id} value={id} className="bg-white text-slate-900">
+                        {user.company_names?.[idx] || 'Unknown Company'}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-600 pointer-events-none">
+                    <Briefcase size={16} />
+                  </div>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" />
+                </div>
+              ) : (
                 <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50">
                   <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
                     <Briefcase size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-purple-700">{localTask.company_name}</span>
+                    <span className="text-sm font-medium text-purple-700">{localTask.company_name || 'Personal'}</span>
                   </div>
                 </div>
-              </div>
-            )}
-            
+              )}
+            </div>
+
             {/* Assignee - read-only in view mode */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-                <div className="relative group">
-                    <div className={`flex items-center gap-2 p-1 -ml-1 rounded-md transition-colors ${!viewOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
-                        <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
+              <div className="relative group">
+                <div className={`flex items-center gap-2 p-1 -ml-1 rounded-md transition-colors ${!viewOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
+                  <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
                     {localTask.assignee_avatar ? (
                       <img src={localTask.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                        ) : (
+                    ) : (
                       (localTask.assignee_name || '').charAt(0)
-                        )}
-                        </div>
-                        <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      {localTask.assignee_name}
-                            {!viewOnly && <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />}
-                        </span>
-                        </div>
-                    </div>
-                    {/* Invisible select overlay for interaction - disabled in view mode */}
-                    {!viewOnly && (
-                      <select
-                        value={localTask.assignee_id}
-                        onChange={handleAssigneeChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
-                        aria-label="Select assignee"
-                      >
-                          <optgroup label="Team Members" className="bg-white text-slate-900">
-                              {users.map(u => (
-                                  <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
-                              ))}
-                          </optgroup>
-                      </select>
                     )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      {localTask.assignee_name}
+                      {!viewOnly && <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />}
+                    </span>
+                  </div>
                 </div>
+                {/* Invisible select overlay for interaction - disabled in view mode */}
+                {!viewOnly && (
+                  <select
+                    value={localTask.assignee_id}
+                    onChange={handleAssigneeChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                    aria-label="Select assignee"
+                  >
+                    <optgroup label="Team Members" className="bg-white text-slate-900">
+                      {users.map(u => (
+                        <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                )}
+              </div>
             </div>
 
             {/* Collaborators Section */}
@@ -453,7 +493,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                   </span>
                 )}
               </span>
-              
+
               {viewOnly ? (
                 // View-only mode: just show collaborator names
                 <div className="flex flex-wrap gap-2 p-1 -ml-1">
@@ -485,9 +525,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                       return (
                         <label
                           key={potentialCollab.id}
-                          className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${
-                            isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
-                          }`}
+                          className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
+                            }`}
                         >
                           <input
                             type="checkbox"
@@ -532,27 +571,26 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
               <div className={`flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group rounded transition-colors relative ${!viewOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${
-                   !localTask.due_date ? 'bg-gray-100 text-gray-400' :
-                   isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
-                 }`}>
-                   <Calendar size={16} />
-                 </div>
-                 {/* Native date picker with styling - read-only in view mode */}
-                 {viewOnly ? (
-                   <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}>
-                     {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : 'No due date'}
-                   </span>
-                 ) : (
-                   <input 
-                     type="date"
-                     value={dateInputValue}
-                     onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
-                     className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
-                     title="Select due date"
-                     placeholder="Select due date"
-                   />
-                 )}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${!localTask.due_date ? 'bg-gray-100 text-gray-400' :
+                  isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
+                  }`}>
+                  <Calendar size={16} />
+                </div>
+                {/* Native date picker with styling - read-only in view mode */}
+                {viewOnly ? (
+                  <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}>
+                    {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : 'No due date'}
+                  </span>
+                ) : (
+                  <input
+                    type="date"
+                    value={dateInputValue}
+                    onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
+                    className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
+                    title="Select due date"
+                    placeholder="Select due date"
+                  />
+                )}
               </div>
             </div>
 
@@ -561,11 +599,10 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Priority</span>
               <div className="flex items-center gap-2 p-1 -ml-1">
                 {viewOnly ? (
-                  <span className={`pl-3 pr-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${
-                    localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
+                  <span className={`pl-3 pr-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
                     localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                    'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
+                      'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
                     {localTask.priority}
                   </span>
                 ) : (
@@ -573,51 +610,49 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                     <select
                       value={localTask.priority}
                       onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
-                      className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${
-                        localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                      className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
                         localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
-                        'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                      }`}
+                          'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                        }`}
                       aria-label="Select priority"
                     >
                       {Object.values(Priority).map(p => (
                         <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
                       ))}
                     </select>
-                    <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
-                       localTask.priority === Priority.HIGH ? 'text-red-700' :
-                       localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
-                       'text-blue-700'
-                    }`} />
+                    <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${localTask.priority === Priority.HIGH ? 'text-red-700' :
+                      localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
+                        'text-blue-700'
+                      }`} />
                   </div>
                 )}
               </div>
             </div>
 
-             {/* Status Selector - always enabled (users can change status) */}
-             <div className="flex flex-col gap-1">
+            {/* Status Selector - always enabled (users can change status) */}
+            <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Status</span>
               <div className="flex items-center gap-2 p-1 -ml-1">
-                 <div className="relative w-full">
-                    <select
-                      value={localTask.status}
-                      onChange={(e) => handleStatusDropdownChange(e.target.value as Status)}
-                      className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
-                      aria-label="Select status"
-                    >
-                      {Object.values(Status).map(s => (
-                        <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                 </div>
+                <div className="relative w-full">
+                  <select
+                    value={localTask.status}
+                    onChange={(e) => handleStatusDropdownChange(e.target.value as Status)}
+                    className="appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+                    aria-label="Select status"
+                  >
+                    {Object.values(Status).map(s => (
+                      <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
               </div>
             </div>
 
             {/* Dynamic Project Details Fields */}
             {currentProject && (
               <>
-                 {/* Client Name */}
+                {/* Client Name */}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</span>
                   <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
@@ -649,20 +684,20 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
 
           {/* Description Textarea - read-only in view mode */}
           <div className="mb-8 relative">
-             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
-             {viewOnly ? (
-               <div className="w-full text-gray-700 text-base leading-relaxed bg-gray-50 border border-slate-200 rounded-md p-3 min-h-[150px]">
-                 {localTask.description || <span className="text-gray-400 italic">No description provided</span>}
-               </div>
-             ) : (
-               <textarea
-                 value={localTask.description}
-                 onChange={(e) => updateLocalTask({ description: e.target.value })}
-                 className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
-                 rows={6}
-                 placeholder="Add a description..."
-               />
-             )}
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
+            {viewOnly ? (
+              <div className="w-full text-gray-700 text-base leading-relaxed bg-gray-50 border border-slate-200 rounded-md p-3 min-h-[150px]">
+                {localTask.description || <span className="text-gray-400 italic">No description provided</span>}
+              </div>
+            ) : (
+              <textarea
+                value={localTask.description}
+                onChange={(e) => updateLocalTask({ description: e.target.value })}
+                className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
+                rows={6}
+                placeholder="Add a description..."
+              />
+            )}
           </div>
 
           <div className="h-px bg-gray-200 w-full mb-8"></div>
@@ -673,7 +708,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               <MessageSquare size={18} />
               Activity
             </h3>
-            
+
             <div className="space-y-6">
               {comments.length === 0 && (
                 <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
@@ -703,7 +738,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
 
           {/* Task History Section */}
           <div className="mb-4">
-            <button 
+            <button
               onClick={() => setShowHistory(!showHistory)}
               className="w-full flex items-center justify-between font-semibold text-gray-900 mb-4 hover:text-brand-600 transition-colors"
             >
@@ -712,12 +747,12 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                 <span>History</span>
                 <span className="text-xs text-gray-400 font-normal">(All changes with IST timestamps)</span>
               </div>
-              <ChevronDown 
-                size={18} 
-                className={`transition-transform duration-200 ${showHistory ? 'rotate-180' : ''}`} 
+              <ChevronDown
+                size={18}
+                className={`transition-transform duration-200 ${showHistory ? 'rotate-180' : ''}`}
               />
             </button>
-            
+
             {showHistory && (
               <div className="space-y-4 animate-fade-in">
                 {historyLoading ? (
@@ -733,7 +768,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                   <div className="relative">
                     {/* Timeline line */}
                     <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
-                    
+
                     <div className="space-y-4">
                       {history.map((entry, index) => {
                         const { icon, color, label } = getHistoryActionDetails(entry.action);
@@ -743,7 +778,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                             <div className={`z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${color}`}>
                               {icon}
                             </div>
-                            
+
                             {/* Content */}
                             <div className="flex-1 pb-4">
                               <div className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
@@ -764,7 +799,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                                     <span>{entry.created_at_ist}</span>
                                   </div>
                                 </div>
-                                
+
                                 {/* Action description */}
                                 <div className="text-sm text-gray-600">
                                   {entry.action === 'created' ? (
@@ -814,7 +849,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                 className="w-full border border-gray-300 bg-white rounded-lg pl-4 pr-12 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent shadow-sm"
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
               />
-              <button 
+              <button
                 onClick={handleAddComment}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-600 hover:text-brand-700 p-1"
                 aria-label="Send comment"

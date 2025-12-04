@@ -74,8 +74,8 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as any;
 
     // Don't intercept login/register requests - let them fail naturally
-    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || 
-                           originalRequest?.url?.includes('/auth/register');
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/register');
     if (isAuthEndpoint) {
       return Promise.reject(error);
     }
@@ -83,17 +83,17 @@ apiClient.interceptors.response.use(
     // If 401 and not already retried, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       const refreshToken = getRefreshToken();
       if (refreshToken) {
         try {
           const response = await axios.post(API_ENDPOINTS.AUTH.REFRESH, {
             refresh_token: refreshToken,
           });
-          
+
           const { access_token, refresh_token } = response.data;
           setTokens(access_token, refresh_token);
-          
+
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return apiClient(originalRequest);
@@ -112,7 +112,7 @@ apiClient.interceptors.response.use(
         window.location.href = isUserPortal ? '/#/user/login' : '/#/login';
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -153,8 +153,8 @@ export const authAPI = {
 // ==================== User APIs ====================
 
 export const userAPI = {
-  getAll: async () => {
-    const response = await apiClient.get(API_ENDPOINTS.USERS.BASE);
+  getAll: async (params?: any) => {
+    const response = await apiClient.get(API_ENDPOINTS.USERS.BASE, { params });
     return response.data;
   },
 
@@ -212,7 +212,7 @@ export const profileAPI = {
   uploadAvatar: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await apiClient.post(`${API_BASE_URL}/api/v1/profile/me/avatar`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -365,13 +365,13 @@ export const commentAPI = {
 // ==================== Dashboard APIs ====================
 
 export const dashboardAPI = {
-  getStats: async () => {
-    const response = await apiClient.get(`${API_BASE_URL}/api/v1/dashboard/stats`);
+  getStats: async (params?: any) => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/dashboard/stats`, { params });
     return response.data;
   },
 
-  getRecentActivity: async () => {
-    const response = await apiClient.get(`${API_BASE_URL}/api/v1/dashboard/recent-activity`);
+  getRecentActivity: async (params?: any) => {
+    const response = await apiClient.get(`${API_BASE_URL}/api/v1/dashboard/recent-activity`, { params });
     return response.data;
   },
 };
@@ -437,7 +437,7 @@ export const chatbotAPI = {
    * Call without args to return cached result when available. Pass { force: true }
    * to bypass the cache.
    */
-  getHistory: async (opts?: { force?: boolean } ) => {
+  getHistory: async (opts?: { force?: boolean }) => {
     const force = opts?.force === true;
     if (!force && _chatbotHistoryCache) {
       return _chatbotHistoryCache;

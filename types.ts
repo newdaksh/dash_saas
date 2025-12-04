@@ -82,7 +82,7 @@ export interface Collaborator {
 }
 
 // Task History types
-export type HistoryActionType = 
+export type HistoryActionType =
   | 'created'
   | 'updated'
   | 'status_changed'
@@ -144,6 +144,8 @@ export interface Project {
   owner_id: string;
   owner_name: string;
   client_name: string;
+  company_id?: string;
+  company_name?: string;
   created_at?: string;
   updated_at?: string;
 }

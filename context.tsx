@@ -65,21 +65,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshData = useCallback(async () => {
     console.log('Starting refreshData...');
     try {
-      const usersPromise = userAPI.getAll().catch(err => { 
-        console.error('Users API error:', err); 
-        return []; 
+      const usersPromise = userAPI.getAll().catch(err => {
+        console.error('Users API error:', err);
+        return [];
       });
-      const tasksPromise = taskAPI.getAll().catch(err => { 
-        console.error('Tasks API error:', err); 
-        return []; 
+      const tasksPromise = taskAPI.getAll().catch(err => {
+        console.error('Tasks API error:', err);
+        return [];
       });
-      const projectsPromise = projectAPI.getAll().catch(err => { 
-        console.error('Projects API error:', err); 
-        return []; 
+      const projectsPromise = projectAPI.getAll().catch(err => {
+        console.error('Projects API error:', err);
+        return [];
       });
-      const sentInvitationsPromise = invitationAPI.getSent().catch(err => { 
-        console.error('Sent Invitations API error:', err); 
-        return []; 
+      const sentInvitationsPromise = invitationAPI.getSent().catch(err => {
+        console.error('Sent Invitations API error:', err);
+        return [];
       });
 
       const [usersData, tasksData, projectsData, sentInvitations] = await Promise.all([
@@ -88,7 +88,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         projectsPromise,
         sentInvitationsPromise,
       ]);
-      
+
       console.log('RefreshData received:', {
         usersCount: usersData?.length,
         tasksCount: tasksData?.length,
@@ -98,7 +98,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         tasksDataIsArray: Array.isArray(tasksData),
         firstTask: tasksData?.[0]
       });
-      
+
       if (Array.isArray(usersData)) {
         console.log('Setting users:', usersData.length);
         setUsers(usersData);
@@ -139,7 +139,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return [];
       });
 
-      const [tasksData, receivedInvitations] = await Promise.all([tasksPromise, receivedInvitationsPromise]);
+      // Fetch users (team members) for assignee/collaborator selection
+      const usersPromise = userAPI.getAll().catch(err => {
+        console.error('Users API error:', err);
+        return [];
+      });
+
+      // Fetch projects for project selection
+      const projectsPromise = projectAPI.getAll().catch(err => {
+        console.error('Projects API error:', err);
+        return [];
+      });
+
+      const [tasksData, receivedInvitations, usersData, projectsData] = await Promise.all([
+        tasksPromise,
+        receivedInvitationsPromise,
+        usersPromise,
+        projectsPromise
+      ]);
 
       if (Array.isArray(tasksData)) {
         console.log('Setting tasks from all companies:', tasksData.length);
@@ -150,6 +167,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.log('Setting received invitations:', receivedInvitations.length);
         setInvitations(receivedInvitations);
       }
+
+      if (Array.isArray(usersData)) {
+        console.log('Setting users (team members):', usersData.length);
+        setUsers(usersData);
+      }
+
+      if (Array.isArray(projectsData)) {
+        console.log('Setting projects:', projectsData.length);
+        setProjects(projectsData);
+      }
     } catch (err: any) {
       console.error('Failed to refresh user data:', err);
     }
@@ -158,18 +185,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Store refreshUserData in ref for user portal refreshes
   const refreshUserDataRef = useRef<(() => Promise<void>) | null>(null);
   const userRef = useRef<User | null>(null);
-  
+
   useEffect(() => {
     refreshUserDataRef.current = refreshUserData;
   }, [refreshUserData]);
-  
+
   useEffect(() => {
     userRef.current = user;
   }, [user]);
 
   const scheduleRealtimeRefresh = useCallback((reason: string) => {
     console.log(`[Realtime Sync] Schedule requested for: ${reason}`);
-    
+
     // For chatbot changes, allow refresh even if one is pending (cancel existing)
     if (reason === 'CHATBOT_DB_CHANGE' && realtimeRefreshTimeoutRef.current) {
       console.log(`[Realtime Sync] Chatbot change - resetting timer for immediate refresh`);
@@ -183,7 +210,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Use shorter delay for chatbot changes for more responsive UI
     const delay = reason === 'CHATBOT_DB_CHANGE' ? 100 : 300;
     console.log(`[Realtime Sync] Setting timeout for ${reason} (delay: ${delay}ms)`);
-    
+
     realtimeRefreshTimeoutRef.current = setTimeout(async () => {
       console.log(`[Realtime Sync] Timeout fired! Clearing ref and refreshing for ${reason}`);
       realtimeRefreshTimeoutRef.current = null;
@@ -191,9 +218,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Determine which refresh function to call based on user type
         const currentUser = userRef.current;
         const isUserPortal = currentUser?.user_type === 'user';
-        
+
         console.log(`[Realtime Sync] User type: ${currentUser?.user_type}, isUserPortal: ${isUserPortal}`);
-        
+
         if (isUserPortal && refreshUserDataRef.current) {
           console.log(`[Realtime Sync] Calling refreshUserData() due to ${reason}`);
           await refreshUserDataRef.current();
@@ -232,21 +259,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (cachedUser) {
             setUser(cachedUser);
           }
-          
+
           // Then verify with API and update
           const userData = await authAPI.getCurrentUser();
           console.log('Current user data:', userData);
-          
+
           // Preserve the user_type from cached data if it exists
           // This ensures users stay in user portal after refresh
           const userWithType = {
             ...userData,
             user_type: cachedUser?.user_type || userData.user_type
           };
-          
+
           setUser(userWithType);
           setUserData(userWithType); // Cache for session recovery
-          
+
           // Call the appropriate refresh function based on user type
           if (userWithType.user_type === 'user') {
             await refreshUserData();
@@ -292,7 +319,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubTaskUpdated = websocketService.on(WebSocketEventType.TASK_UPDATED, (message: WebSocketMessage) => {
       console.log('WebSocket: Task updated', message.payload);
-      setTasks(prev => prev.map(task => 
+      setTasks(prev => prev.map(task =>
         task.id === message.payload.id ? { ...task, ...message.payload } : task
       ));
       scheduleRealtimeRefresh('TASK_UPDATED');
@@ -310,7 +337,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         data: message.payload,
       };
       setNotifications(prev => [newNotification, ...prev]);
-      
+
       // Also update/add the task
       setTasks(prev => {
         const existingIndex = prev.findIndex(t => t.id === message.payload.id);
@@ -345,7 +372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubProjectUpdated = websocketService.on(WebSocketEventType.PROJECT_UPDATED, (message: WebSocketMessage) => {
       console.log('WebSocket: Project updated', message.payload);
-      setProjects(prev => prev.map(project => 
+      setProjects(prev => prev.map(project =>
         project.id === message.payload.id ? { ...project, ...message.payload } : project
       ));
     });
@@ -389,12 +416,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.log('WebSocket: Invitation response received', message.payload);
       const isAccepted = message.payload.action === 'accept';
       const action = isAccepted ? 'accepted' : 'declined';
-      
+
       // Update the invitation status in the list
-      setInvitations(prev => prev.map(inv => 
+      setInvitations(prev => prev.map(inv =>
         inv.id === message.payload.id ? { ...inv, status: message.payload.status } : inv
       ));
-      
+
       // Create a notification for the admin with appropriate styling info
       const newNotification: Notification = {
         id: `notif-inv-resp-${Date.now()}`,
@@ -409,7 +436,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         },
       };
       setNotifications(prev => [newNotification, ...prev]);
-      
+
       // Log for debugging
       console.log(`Invitation ${action}:`, message.payload.invitee_email);
     });
@@ -417,10 +444,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Handle user joined (when a user accepts an invitation)
     const unsubUserJoined = websocketService.on(WebSocketEventType.USER_JOINED, (message: WebSocketMessage) => {
       console.log('WebSocket: User joined company', message.payload);
-      
+
       // Refresh users list to show the new user
       refreshData();
-      
+
       // Create a notification for admin
       const newNotification: Notification = {
         id: `notif-user-joined-${Date.now()}`,
@@ -439,14 +466,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Handle user profile updates (when any user in the company updates their profile)
     const unsubUserProfileUpdated = websocketService.on(WebSocketEventType.USER_PROFILE_UPDATED, (message: WebSocketMessage) => {
       console.log('✓ WebSocket: User profile updated received', message.payload);
-      
+
       const updatedUserData = message.payload;
-      
+
       // Update the user in the users list
-      setUsers(prev => prev.map(u => 
+      setUsers(prev => prev.map(u =>
         u.id === updatedUserData.id ? { ...u, ...updatedUserData } : u
       ));
-      
+
       // If this is the current user, update their data too
       if (userRef.current && userRef.current.id === updatedUserData.id) {
         console.log('✓ Profile update is for current user, updating state immediately');
@@ -457,7 +484,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else {
         console.log('✓ Profile update is for another user:', updatedUserData.id);
       }
-      
+
       // Schedule a full refresh to ensure consistency
       scheduleRealtimeRefresh('USER_PROFILE_UPDATED');
     });
@@ -477,10 +504,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.log('🤖 [CHATBOT] WebSocket: Chatbot made DB change', message.payload);
       console.log('🤖 [CHATBOT] Change type:', message.payload?.change_type);
       console.log('🤖 [CHATBOT] Details:', message.payload?.details);
-      
+
       const changeType = message.payload?.change_type?.toLowerCase() || '';
       const details = message.payload?.details || {};
-      
+
       // Handle immediate UI updates based on change type for better UX
       if (changeType.includes('task')) {
         if (changeType === 'task_created' && details.task_id) {
@@ -490,23 +517,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setTasks(prev => prev.filter(t => t.id !== details.task_id));
         } else if (changeType === 'task_due_date_updated' && details.task_id) {
           console.log('🤖 [CHATBOT] Task due date updated by chatbot');
-          setTasks(prev => prev.map(t => 
-            t.id === details.task_id 
-              ? { ...t, due_date: details.new_due_date } 
+          setTasks(prev => prev.map(t =>
+            t.id === details.task_id
+              ? { ...t, due_date: details.new_due_date }
               : t
           ));
         } else if (changeType === 'task_status_updated' && details.task_id) {
           console.log('🤖 [CHATBOT] Task status updated by chatbot');
-          setTasks(prev => prev.map(t => 
-            t.id === details.task_id 
-              ? { ...t, status: details.new_status } 
+          setTasks(prev => prev.map(t =>
+            t.id === details.task_id
+              ? { ...t, status: details.new_status }
               : t
           ));
         } else if (changeType === 'task_priority_updated' && details.task_id) {
           console.log('🤖 [CHATBOT] Task priority updated by chatbot');
-          setTasks(prev => prev.map(t => 
-            t.id === details.task_id 
-              ? { ...t, priority: details.new_priority } 
+          setTasks(prev => prev.map(t =>
+            t.id === details.task_id
+              ? { ...t, priority: details.new_priority }
               : t
           ));
         } else if (changeType.includes('status') || changeType.includes('priority') || changeType.includes('project')) {
@@ -519,50 +546,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           console.log('🤖 [CHATBOT] Project deleted by chatbot, removing from state');
           setProjects(prev => prev.filter(p => p.id !== details.project_id));
           // Also update tasks that belonged to this project
-          setTasks(prev => prev.map(t => 
-            t.project_id === details.project_id 
-              ? { ...t, project_id: undefined, project_name: undefined } 
+          setTasks(prev => prev.map(t =>
+            t.project_id === details.project_id
+              ? { ...t, project_id: undefined, project_name: undefined }
               : t
           ));
         } else if (changeType === 'project_name_updated' && details.project_id) {
           console.log('🤖 [CHATBOT] Project name updated by chatbot');
-          setProjects(prev => prev.map(p => 
-            p.id === details.project_id 
-              ? { ...p, name: details.new_name } 
+          setProjects(prev => prev.map(p =>
+            p.id === details.project_id
+              ? { ...p, name: details.new_name }
               : p
           ));
           // Also update project_name in related tasks
-          setTasks(prev => prev.map(t => 
-            t.project_id === details.project_id 
-              ? { ...t, project_name: details.new_name } 
+          setTasks(prev => prev.map(t =>
+            t.project_id === details.project_id
+              ? { ...t, project_name: details.new_name }
               : t
           ));
         } else if (changeType === 'project_status_updated' && details.project_id) {
           console.log('🤖 [CHATBOT] Project status updated by chatbot');
-          setProjects(prev => prev.map(p => 
-            p.id === details.project_id 
-              ? { ...p, status: details.new_status } 
+          setProjects(prev => prev.map(p =>
+            p.id === details.project_id
+              ? { ...p, status: details.new_status }
               : p
           ));
         } else if (changeType === 'project_client_updated' && details.project_id) {
           console.log('🤖 [CHATBOT] Project client updated by chatbot');
-          setProjects(prev => prev.map(p => 
-            p.id === details.project_id 
-              ? { ...p, client_name: details.new_client } 
+          setProjects(prev => prev.map(p =>
+            p.id === details.project_id
+              ? { ...p, client_name: details.new_client }
               : p
           ));
         } else if (changeType === 'project_owner_updated' && details.project_id) {
           console.log('🤖 [CHATBOT] Project owner updated by chatbot');
-          setProjects(prev => prev.map(p => 
-            p.id === details.project_id 
-              ? { ...p, owner_name: details.new_owner } 
+          setProjects(prev => prev.map(p =>
+            p.id === details.project_id
+              ? { ...p, owner_name: details.new_owner }
               : p
           ));
         } else if (changeType === 'project_deadline_updated' && details.project_id) {
           console.log('🤖 [CHATBOT] Project deadline updated by chatbot');
-          setProjects(prev => prev.map(p => 
-            p.id === details.project_id 
-              ? { ...p, due_date: details.new_deadline === 'None' ? null : details.new_deadline } 
+          setProjects(prev => prev.map(p =>
+            p.id === details.project_id
+              ? { ...p, due_date: details.new_deadline === 'None' ? null : details.new_deadline }
               : p
           ));
         } else if (changeType === 'project_task_added' || changeType === 'project_task_removed') {
@@ -574,10 +601,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.log('🤖 [CHATBOT] User profile updated by chatbot');
         const userId = details.user_id;
         const updates = details.updates || [];
-        
+
         if (userId && userRef.current && userRef.current.id === userId) {
           console.log('🤖 [CHATBOT] This is the current user, fetching fresh profile data');
-          
+
           // Immediately fetch fresh user data from the server
           try {
             profileAPI.getMyProfile().then((freshUserData: any) => {
@@ -596,7 +623,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           console.log('🤖 [CHATBOT] Profile update for another user:', userId);
         }
       }
-      
+
       // Create notification for user about chatbot action
       const newNotification: Notification = {
         id: `notif-chatbot-${Date.now()}`,
@@ -607,7 +634,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         data: message.payload,
       };
       setNotifications(prev => [newNotification, ...prev]);
-      
+
       // Refresh all data when chatbot makes any database change
       scheduleRealtimeRefresh('CHATBOT_DB_CHANGE');
     });
@@ -655,22 +682,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await authAPI.login({ email, password });
       setTokens(response.access_token, response.refresh_token);
-      
+
       const userData = await authAPI.getCurrentUser();
-      
+
       // Check if user is an admin - only admins can login through admin portal
       if (userData.role !== 'Admin') {
         // Clear tokens and reject login
         clearTokens();
         throw new Error('Only company admins can login here. Please use the User Portal.');
       }
-      
+
       setUser(userData);
       setUserData(userData); // Cache user data for session persistence
-      
+
       await refreshData();
     } catch (err: any) {
       console.error('Login failed:', err);
@@ -690,21 +717,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setLoading(true);
       setError(null);
-      
+
       // Clear existing session first
       clearTokens();
       setUser(null);
       setUsers([]);
       setTasks([]);
       setProjects([]);
-      
+
       const response = await authAPI.login({ email, password });
       setTokens(response.access_token, response.refresh_token);
-      
+
       const userData = await authAPI.getCurrentUser();
       setUser(userData);
       setUserData(userData); // Cache user data for session persistence
-      
+
       await refreshData();
     } catch (err: any) {
       console.error('Login as user failed:', err);
@@ -719,20 +746,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await authAPI.register({
         name,
         email,
         password,
         company_name: companyName,
       });
-      
+
       setTokens(response.access_token, response.refresh_token);
-      
+
       const userData = await authAPI.getCurrentUser();
       setUser(userData);
       setUserData(userData); // Cache user data for session persistence
-      
+
       await refreshData();
     } catch (err: any) {
       console.error('Registration failed:', err);
@@ -756,29 +783,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // ==================== User Portal Auth ====================
-  
+
   const userLogin = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await authAPI.login({ email, password });
       setTokens(response.access_token, response.refresh_token);
-      
+
       const userData = await authAPI.getCurrentUser();
-      
+
       // Check if user is an admin - admins should not login through user portal
       if (userData.role === 'Admin') {
         // Clear tokens and reject login
         clearTokens();
         throw new Error('Admin users should login through the Company Admin portal');
       }
-      
+
       // Mark as user type
       const userWithType = { ...userData, user_type: 'user' as UserType };
       setUser(userWithType);
       setUserData(userWithType);
-      
+
       await refreshUserData();
     } catch (err: any) {
       console.error('User login failed:', err);
@@ -797,7 +824,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setLoading(true);
       setError(null);
-      
+
       // For individual users, we use "Individual" as the company name
       // since the backend requires a non-empty company_name
       const response = await authAPI.register({
@@ -806,14 +833,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         password,
         company_name: 'Individual',
       });
-      
+
       setTokens(response.access_token, response.refresh_token);
-      
+
       const userData = await authAPI.getCurrentUser();
       const userWithType = { ...userData, user_type: 'user' as UserType };
       setUser(userWithType);
       setUserData(userWithType);
-      
+
       await refreshUserData();
     } catch (err: any) {
       console.error('User registration failed:', err);
@@ -835,9 +862,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setError(null);
       await invitationAPI.respond(invitationId, 'accept');
-      setInvitations(prev => 
-        prev.map(inv => 
-          inv.id === invitationId 
+      setInvitations(prev =>
+        prev.map(inv =>
+          inv.id === invitationId
             ? { ...inv, status: 'Accepted' as const }
             : inv
         )
@@ -866,9 +893,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setError(null);
       await invitationAPI.respond(invitationId, 'decline');
-      setInvitations(prev => 
-        prev.map(inv => 
-          inv.id === invitationId 
+      setInvitations(prev =>
+        prev.map(inv =>
+          inv.id === invitationId
             ? { ...inv, status: 'Declined' as const }
             : inv
         )
@@ -934,7 +961,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
-    
+
     try {
       setError(null);
       // Use profileAPI for self-updates which supports avatar upload
@@ -943,7 +970,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         email: data.email,
         avatar_url: data.avatar_url
       });
-      
+
       // Preserve user_type when updating
       const userWithType = { ...updatedUser, user_type: user.user_type };
       setUser(userWithType);
@@ -998,7 +1025,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addTask = async (task: Partial<Task> & { collaborator_ids?: string[] }): Promise<Task | undefined> => {
     if (!user) return undefined;
-    
+
     try {
       setError(null);
       const newTask = await taskAPI.create({
@@ -1010,6 +1037,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         assignee_id: task.assignee_id || user.id,
         project_id: task.project_id || null,
         collaborator_ids: task.collaborator_ids || [],
+        company_id: task.company_id !== undefined ? task.company_id : null,
       });
       setTasks(prev => [newTask, ...prev]);
       return newTask;
@@ -1023,6 +1051,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateTask = async (updatedTask: Task) => {
     try {
       setError(null);
+
+      // Check if we should use the specific status update endpoint
+      // This is required because the main update endpoint is restricted to the creator
+      const originalTask = tasks.find(t => t.id === updatedTask.id);
+      const isCreator = user?.id === originalTask?.creator_id;
+
+      if (originalTask && !isCreator && user) {
+        // Check if only status has changed
+        const statusChanged = originalTask.status !== updatedTask.status;
+
+        // Check if other fields are unchanged
+        const titleSame = originalTask.title === updatedTask.title;
+        const descSame = originalTask.description === updatedTask.description;
+        const prioritySame = originalTask.priority === updatedTask.priority;
+        const assigneeSame = originalTask.assignee_id === updatedTask.assignee_id;
+        const projectSame = originalTask.project_id === updatedTask.project_id;
+
+        // Date comparison (handle nulls and string/date differences)
+        const d1 = originalTask.due_date ? new Date(originalTask.due_date).toISOString().split('T')[0] : null;
+        const d2 = updatedTask.due_date ? new Date(updatedTask.due_date).toISOString().split('T')[0] : null;
+        const dateSame = d1 === d2;
+
+        // Collaborators comparison
+        const c1 = originalTask.collaborators?.map(c => c.user_id).sort().join(',') || '';
+        const c2 = updatedTask.collaborators?.map(c => c.user_id).sort().join(',') || '';
+        const collaboratorsSame = c1 === c2;
+
+        // Company comparison
+        const companySame = originalTask.company_id === updatedTask.company_id;
+
+        if (statusChanged && titleSame && descSame && prioritySame && assigneeSame && projectSame && dateSame && collaboratorsSame && companySame) {
+          const updated = await taskAPI.updateStatus(updatedTask.id, updatedTask.status);
+          setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+          return;
+        }
+      }
+
       // Extract collaborator IDs from the collaborators array
       const collaborator_ids = updatedTask.collaborators?.map(c => c.user_id) || [];
       const updated = await taskAPI.update(updatedTask.id, {
@@ -1034,6 +1099,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         assignee_id: updatedTask.assignee_id,
         project_id: updatedTask.project_id,
         collaborator_ids: collaborator_ids,
+        company_id: updatedTask.company_id || null,
+        company_name: updatedTask.company_name || null,
       });
       setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
     } catch (err: any) {
@@ -1057,7 +1124,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addProject = async (project: Partial<Project>) => {
     if (!user) return;
-    
+
     try {
       setError(null);
       const newProject = await projectAPI.create({
@@ -1101,9 +1168,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await projectAPI.delete(projectId);
       setProjects(prev => prev.filter(p => p.id !== projectId));
       // Update tasks that belonged to this project to have no project (they stay in DB)
-      setTasks(prev => prev.map(t => 
-        t.project_id === projectId 
-          ? { ...t, project_id: undefined, project_name: undefined } 
+      setTasks(prev => prev.map(t =>
+        t.project_id === projectId
+          ? { ...t, project_id: undefined, project_name: undefined }
           : t
       ));
     } catch (err: any) {
@@ -1114,10 +1181,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return (
-    <AppContext.Provider value={{ 
-      user, 
+    <AppContext.Provider value={{
+      user,
       users,
-      tasks, 
+      tasks,
       projects,
       invitations,
       notifications,
@@ -1128,8 +1195,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       register,
       userLogin,
       userRegister,
-      logout, 
-      addTask, 
+      logout,
+      addTask,
       updateTask,
       deleteTask,
       addProject,
