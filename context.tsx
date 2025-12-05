@@ -69,11 +69,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.error('Users API error:', err);
         return [];
       });
-      const tasksPromise = taskAPI.getAll().catch(err => {
+      const tasksPromise = taskAPI.getAll({ all_companies: true }).catch(err => {
         console.error('Tasks API error:', err);
         return [];
       });
-      const projectsPromise = projectAPI.getAll().catch(err => {
+      const projectsPromise = projectAPI.getAll({ all_companies: true }).catch(err => {
         console.error('Projects API error:', err);
         return [];
       });
