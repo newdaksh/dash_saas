@@ -351,28 +351,30 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
             </div>
           )}
 
-          {/* Project Breadcrumb / Selector */}
-          <div className="mb-4 flex items-center gap-2 group">
-            <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
-            {viewOnly ? (
-              <span className="text-sm text-brand-600 font-medium pl-1">
-                {localTask.project_name || 'No Project'}
-              </span>
-            ) : (
-              <div className="relative">
-                <select
-                  value={localTask.project_id || ''}
-                  onChange={handleProjectChange}
-                  className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
-                  aria-label="Select project"
-                >
-                  <option value="" className="bg-white text-slate-700">No Project</option>
-                  {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
-                </select>
-                <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
-              </div>
-            )}
-          </div>
+          {/* Project Breadcrumb / Selector - Only show for company tasks */}
+          {localTask.company_id && (
+            <div className="mb-4 flex items-center gap-2 group">
+              <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
+              {viewOnly ? (
+                <span className="text-sm text-brand-600 font-medium pl-1">
+                  {localTask.project_name || 'No Project'}
+                </span>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={localTask.project_id || ''}
+                    onChange={handleProjectChange}
+                    className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
+                    aria-label="Select project"
+                  >
+                    <option value="" className="bg-white text-slate-700">No Project</option>
+                    {projects.map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Title Input - read-only in view mode */}
           {viewOnly ? (
@@ -392,15 +394,15 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
 
-            {/* Task Type - shows whether this is a personal or company task */}
+            {/* Task Type - shows the company for this task */}
             <div className="flex flex-col gap-1 col-span-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Task Type</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
               {!viewOnly && user.company_ids && user.company_ids.length > 0 ? (
                 <div className="relative">
                   <select
                     value={localTask.company_id || ''}
                     onChange={(e) => {
-                      const newCompanyId = e.target.value || null;
+                      const newCompanyId = e.target.value;
                       if (newCompanyId) {
                         const index = user.company_ids?.indexOf(newCompanyId);
                         const newCompanyName = index !== undefined && index !== -1 && user.company_names ? user.company_names[index] : null;
@@ -408,20 +410,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                           company_id: newCompanyId,
                           company_name: newCompanyName
                         });
-                      } else {
-                        // Personal mode - no company
-                        updateLocalTask({
-                          company_id: null,
-                          company_name: null,
-                          project_id: undefined,
-                          project_name: undefined
-                        });
                       }
                     }}
                     className="appearance-none w-full bg-purple-50 border border-transparent hover:border-purple-200 text-purple-700 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block px-3 py-1.5 font-medium transition-colors cursor-pointer pl-9"
-                    aria-label="Select task type"
+                    aria-label="Select company"
                   >
-                    <option value="" className="bg-white text-slate-900">Personal</option>
                     {user.company_ids?.map((id, idx) => {
                       const companyName = user.company_names?.[idx];
                       // Filter out "Individual" option
@@ -444,7 +437,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                     <Briefcase size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-purple-700">{localTask.company_name || 'Personal'}</span>
+                    <span className="text-sm font-medium text-purple-700">{localTask.company_name || 'No Company'}</span>
                   </div>
                 </div>
               )}
@@ -487,90 +480,92 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
               </div>
             </div>
 
-            {/* Collaborators Section */}
-            <div className="flex flex-col gap-1 col-span-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <Users size={12} />
-                Collaborators
-                {(localTask.collaborators?.length || 0) > 0 && (
-                  <span className="text-xs bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">
-                    {localTask.collaborators?.length}
-                  </span>
-                )}
-              </span>
-
-              {viewOnly ? (
-                // View-only mode: just show collaborator names
-                <div className="flex flex-wrap gap-2 p-1 -ml-1">
-                  {(localTask.collaborators?.length || 0) === 0 ? (
-                    <span className="text-sm text-slate-400 italic">No collaborators</span>
-                  ) : (
-                    localTask.collaborators?.map(collab => (
-                      <div key={collab.user_id} className="flex items-center gap-2 bg-slate-50 rounded-full px-2 py-1">
-                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">
-                          {collab.user_avatar ? (
-                            <img src={collab.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            collab.user_name.charAt(0)
-                          )}
-                        </div>
-                        <span className="text-sm text-slate-600">{collab.user_name}</span>
-                      </div>
-                    ))
+            {/* Collaborators Section - Only show for company tasks */}
+            {localTask.company_id && (
+              <div className="flex flex-col gap-1 col-span-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <Users size={12} />
+                  Collaborators
+                  {(localTask.collaborators?.length || 0) > 0 && (
+                    <span className="text-xs bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">
+                      {localTask.collaborators?.length}
+                    </span>
                   )}
-                </div>
-              ) : (
-                // Edit mode: show checkboxes to add/remove collaborators
-                <div className="border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-slate-50/50">
-                  {users.filter(u => u.id !== localTask.assignee_id).length === 0 ? (
-                    <span className="text-sm text-slate-400 italic p-1">No other team members available</span>
-                  ) : (
-                    users.filter(u => u.id !== localTask.assignee_id).map(potentialCollab => {
-                      const isSelected = localTask.collaborators?.some(c => c.user_id === potentialCollab.id) || false;
-                      return (
-                        <label
-                          key={potentialCollab.id}
-                          className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
-                            }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              const currentCollabs = localTask.collaborators || [];
-                              if (isSelected) {
-                                // Remove collaborator
-                                updateLocalTask({
-                                  collaborators: currentCollabs.filter(c => c.user_id !== potentialCollab.id)
-                                });
-                              } else {
-                                // Add collaborator
-                                updateLocalTask({
-                                  collaborators: [...currentCollabs, {
-                                    user_id: potentialCollab.id,
-                                    user_name: potentialCollab.name,
-                                    user_avatar: potentialCollab.avatar_url
-                                  }]
-                                });
-                              }
-                            }}
-                            className="w-3.5 h-3.5 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
-                          />
-                          <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] shrink-0">
-                            {potentialCollab.avatar_url ? (
-                              <img src={potentialCollab.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                </span>
+
+                {viewOnly ? (
+                  // View-only mode: just show collaborator names
+                  <div className="flex flex-wrap gap-2 p-1 -ml-1">
+                    {(localTask.collaborators?.length || 0) === 0 ? (
+                      <span className="text-sm text-slate-400 italic">No collaborators</span>
+                    ) : (
+                      localTask.collaborators?.map(collab => (
+                        <div key={collab.user_id} className="flex items-center gap-2 bg-slate-50 rounded-full px-2 py-1">
+                          <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">
+                            {collab.user_avatar ? (
+                              <img src={collab.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
                             ) : (
-                              potentialCollab.name.charAt(0)
+                              collab.user_name.charAt(0)
                             )}
                           </div>
-                          <span className="text-sm text-slate-600 truncate">{potentialCollab.name}</span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
+                          <span className="text-sm text-slate-600">{collab.user_name}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  // Edit mode: show checkboxes to add/remove collaborators
+                  <div className="border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-slate-50/50">
+                    {users.filter(u => u.id !== localTask.assignee_id).length === 0 ? (
+                      <span className="text-sm text-slate-400 italic p-1">No other team members available</span>
+                    ) : (
+                      users.filter(u => u.id !== localTask.assignee_id).map(potentialCollab => {
+                        const isSelected = localTask.collaborators?.some(c => c.user_id === potentialCollab.id) || false;
+                        return (
+                          <label
+                            key={potentialCollab.id}
+                            className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                const currentCollabs = localTask.collaborators || [];
+                                if (isSelected) {
+                                  // Remove collaborator
+                                  updateLocalTask({
+                                    collaborators: currentCollabs.filter(c => c.user_id !== potentialCollab.id)
+                                  });
+                                } else {
+                                  // Add collaborator
+                                  updateLocalTask({
+                                    collaborators: [...currentCollabs, {
+                                      user_id: potentialCollab.id,
+                                      user_name: potentialCollab.name,
+                                      user_avatar: potentialCollab.avatar_url
+                                    }]
+                                  });
+                                }
+                              }}
+                              className="w-3.5 h-3.5 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                            />
+                            <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] shrink-0">
+                              {potentialCollab.avatar_url ? (
+                                <img src={potentialCollab.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                              ) : (
+                                potentialCollab.name.charAt(0)
+                              )}
+                            </div>
+                            <span className="text-sm text-slate-600 truncate">{potentialCollab.name}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Due Date Input - read-only in view mode */}
             <div className="flex flex-col gap-1">

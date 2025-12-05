@@ -40,11 +40,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
       setStatus(Status.TODO);
       setAssigneeId(user.id);
 
-      // Default to user's current company if available, or first company
-      if (user.current_company_id) {
+      // Default to user's current company if available, or first non-Individual company
+      if (user.current_company_id && user.company_names?.[user.company_ids?.indexOf(user.current_company_id) ?? -1] !== 'Individual') {
         setSelectedCompanyId(user.current_company_id);
       } else if (user.company_ids && user.company_ids.length > 0) {
-        setSelectedCompanyId(user.company_ids[0]);
+        // Find first non-Individual company
+        const firstValidIndex = user.company_names?.findIndex(name => name !== 'Individual') ?? -1;
+        if (firstValidIndex >= 0 && user.company_ids[firstValidIndex]) {
+          setSelectedCompanyId(user.company_ids[firstValidIndex]);
+        } else {
+          setSelectedCompanyId('');
+        }
       } else {
         setSelectedCompanyId('');
       }
@@ -95,22 +101,15 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
   // Handle Company Change
   const handleCompanyChange = (companyId: string) => {
     setSelectedCompanyId(companyId);
-    if (!companyId) {
-      // Individual Mode
-      setProjectId('');
-      setSelectedCollaboratorIds([]);
-      setAssigneeId(user?.id || '');
-    } else {
-      // Company Mode - Reset project
-      setProjectId('');
-      setSelectedCollaboratorIds([]);
-      // Reset assignee to self initially, but allow picking from fetched users later
-      setAssigneeId(user?.id || '');
-    }
+    // Reset project and collaborators when switching companies
+    setProjectId('');
+    setSelectedCollaboratorIds([]);
+    // Reset assignee to self initially, but allow picking from fetched users later
+    setAssigneeId(user?.id || '');
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || !selectedCompanyId) return;
 
     const newTask: Partial<Task> & { collaborator_ids?: string[] } = {
       title,
@@ -121,7 +120,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
       assignee_id: assigneeId,
       project_id: projectId || null,
       collaborator_ids: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
-      company_id: selectedCompanyId || null  // null for individual/personal tasks
+      company_id: selectedCompanyId  // Company is required
     };
 
     await addTask(newTask);
@@ -195,9 +194,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
 
-            {/* Task Type Selector - Company or Personal */}
+            {/* Company Selector */}
             <div className="flex flex-col gap-1 col-span-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company/Type</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
               <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50 group relative">
                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs pointer-events-none">
                   <Briefcase size={16} />
@@ -208,12 +207,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                     onChange={(e) => handleCompanyChange(e.target.value)}
                     className="appearance-none w-full bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer py-1 pr-6"
                   >
-                    <option value="">Personal</option>
-                    {user.company_names?.filter(name => name !== 'Individual').map((name, index) => (
-                      <option key={user.company_ids?.[index]} value={user.company_ids?.[index]}>
-                        {name}
-                      </option>
-                    ))}
+                    {user.company_ids?.map((id, idx) => {
+                      const companyName = user.company_names?.[idx];
+                      // Filter out "Individual" option
+                      if (companyName === 'Individual') return null;
+                      return (
+                        <option key={id} value={id}>
+                          {companyName || 'Unknown Company'}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
@@ -223,51 +226,35 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
             {/* Assignee */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-              {selectedCompanyId ? (
-                <div className="relative group">
-                  <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                      {(fetchedUsers.find(u => u.id === assigneeId)?.avatar_url || (assigneeId === user.id ? user.avatar_url : undefined)) ? (
-                        <img src={fetchedUsers.find(u => u.id === assigneeId)?.avatar_url || (assigneeId === user.id ? user.avatar_url : undefined)} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        (fetchedUsers.find(u => u.id === assigneeId)?.name || user.name).charAt(0)
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                        {fetchedUsers.find(u => u.id === assigneeId)?.name || user.name}
-                        <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
-                      </span>
-                    </div>
-                  </div>
-                  {/* Select Overlay */}
-                  <select
-                    value={assigneeId}
-                    onChange={(e) => setAssigneeId(e.target.value)}
-                    disabled={isLoadingData}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
-                  >
-                    <option value={user.id}>{user.name} (Me)</option>
-                    {filteredCollaborators.map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                /* Personal task - fixed to self */
-                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-slate-50">
+              <div className="relative group">
+                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
                   <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                    {(fetchedUsers.find(u => u.id === assigneeId)?.avatar_url || (assigneeId === user.id ? user.avatar_url : undefined)) ? (
+                      <img src={fetchedUsers.find(u => u.id === assigneeId)?.avatar_url || (assigneeId === user.id ? user.avatar_url : undefined)} alt="" className="w-full h-full rounded-full object-cover" />
                     ) : (
-                      user.name.charAt(0)
+                      (fetchedUsers.find(u => u.id === assigneeId)?.name || user.name).charAt(0)
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-700">{user.name} (Me)</span>
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      {fetchedUsers.find(u => u.id === assigneeId)?.name || user.name}
+                      <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />
+                    </span>
                   </div>
                 </div>
-              )}
+                {/* Select Overlay */}
+                <select
+                  value={assigneeId}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                  disabled={isLoadingData}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
+                >
+                  <option value={user.id}>{user.name} (Me)</option>
+                  {filteredCollaborators.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Collaborators - only show for company tasks */}
