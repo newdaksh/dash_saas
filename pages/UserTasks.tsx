@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context';
-import { Clock, Building2, Eye, GripVertical, Users, List, Kanban, Calendar, Layers, CheckCircle2, Circle, LayoutGrid } from 'lucide-react';
-import { Task, Status } from '../types';
+import { Clock, Building2, Eye, GripVertical, Users, List, Kanban, Calendar, Layers, CheckCircle2, Circle, LayoutGrid, Search, Filter, ListFilter, ArrowUpDown, ChevronDown, AlertCircle, X } from 'lucide-react';
+import { Task, Status, Priority } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { BoardView } from '../components/BoardView';
 import { CalendarView } from '../components/CalendarView';
@@ -11,33 +11,158 @@ import { Plus } from 'lucide-react';
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done';
 type ViewMode = 'list' | 'board' | 'calendar';
+type SortOption = 'default' | 'dueDate' | 'priority';
+type DateFilter = 'all' | 'today' | 'week' | 'overdue';
+type ViewFilter = 'assigned_to_me' | 'assigned_by_me';
 
 export const UserTasks: React.FC = () => {
-  const { user, tasks, updateTask } = useApp();
+  const { user, tasks, projects, updateTask } = useApp();
 
   // Selected task for viewing details
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('board');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  // Filter state
+  const [filter, setFilter] = useState<ViewFilter>('assigned_to_me');
+  const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<Priority | 'All'>('All');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [search, setSearch] = useState('');
+
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Filter tasks assigned to this user
-  const myTasks = tasks.filter(t => t.assignee_id === user?.id);
+  // Filter tasks based on view filter
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    if (filter === 'assigned_to_me') {
+      return tasks.filter(t => t.assignee_id === user.id);
+    } else {
+      return tasks.filter(t => t.creator_id === user.id);
+    }
+  }, [tasks, user, filter]);
+
+  // Apply filters to tasks
+  const filteredTasks = useMemo(() => {
+    let result = [...myTasks];
+
+    // 1. Status Filter
+    if (statusFilter !== 'All') {
+      result = result.filter(t => t.status === statusFilter);
+    }
+
+    // 2. Priority Filter
+    if (priorityFilter !== 'All') {
+      result = result.filter(t => t.priority === priorityFilter);
+    }
+
+    // 3. Project Filter
+    if (projectFilter !== 'all') {
+      result = result.filter(t => t.project_id === projectFilter);
+    }
+
+    // 4. Company Filter
+    if (companyFilter !== 'all') {
+      if (companyFilter === 'personal') {
+        result = result.filter(t => !t.company_name || t.company_name.trim() === '');
+      } else {
+        result = result.filter(t => t.company_name === companyFilter);
+      }
+    }
+
+    // 5. Date Filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      result = result.filter(t => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date);
+        const taskDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+        if (dateFilter === 'overdue') {
+          return taskDate < today && t.status !== Status.DONE;
+        }
+        if (dateFilter === 'today') {
+          return taskDate.getTime() === today.getTime();
+        }
+        if (dateFilter === 'week') {
+          const nextWeek = new Date(today);
+          nextWeek.setDate(today.getDate() + 7);
+          return taskDate >= today && taskDate <= nextWeek;
+        }
+        return true;
+      });
+    }
+
+    // 5. Search Filter
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(lowerSearch) ||
+        t.description?.toLowerCase().includes(lowerSearch) ||
+        t.project_name?.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    // 6. Sorting
+    if (sortBy === 'dueDate') {
+      result = [...result].sort((a, b) => {
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      });
+    } else if (sortBy === 'priority') {
+      const pWeight = { [Priority.HIGH]: 3, [Priority.MEDIUM]: 2, [Priority.LOW]: 1 };
+      result = [...result].sort((a, b) => pWeight[b.priority] - pWeight[a.priority]);
+    }
+
+    return result;
+  }, [myTasks, statusFilter, priorityFilter, projectFilter, companyFilter, dateFilter, search, sortBy]);
+
+  // Clear all filters function
+  const clearAllFilters = () => {
+    setStatusFilter('All');
+    setPriorityFilter('All');
+    setDateFilter('all');
+    setProjectFilter('all');
+    setCompanyFilter('all');
+    setSortBy('default');
+    setSearch('');
+  };
 
   // Derive selected task from the latest tasks array
   const selectedTask = useMemo(() =>
     tasks.find(t => t.id === selectedTaskId) || null
     , [tasks, selectedTaskId]);
 
-  // Group by status
-  const todoTasks = myTasks.filter(t => t.status === 'To Do');
-  const inProgressTasks = myTasks.filter(t => t.status === 'In Progress');
-  const reviewTasks = myTasks.filter(t => t.status === 'Review');
-  const doneTasks = myTasks.filter(t => t.status === 'Done');
+  // Get unique companies from user's tasks
+  const userCompanies = useMemo(() => {
+    const companies = new Set<string>();
+    myTasks.forEach(t => {
+      if (t.company_name && t.company_name.trim() !== '') {
+        companies.add(t.company_name);
+      }
+    });
+    return Array.from(companies).sort();
+  }, [myTasks]);
+
+  // Check if user has personal tasks (tasks without company)
+  const hasPersonalTasks = useMemo(() => {
+    return myTasks.some(t => !t.company_name || t.company_name.trim() === '');
+  }, [myTasks]);
+
+  // Group filtered tasks by status
+  const todoTasks = filteredTasks.filter(t => t.status === 'To Do');
+  const inProgressTasks = filteredTasks.filter(t => t.status === 'In Progress');
+  const reviewTasks = filteredTasks.filter(t => t.status === 'Review');
+  const doneTasks = filteredTasks.filter(t => t.status === 'Done');
 
   // Check if user has tasks from multiple companies
   const uniqueCompanies = new Set(myTasks.map(t => t.company_name).filter(Boolean));
@@ -344,7 +469,171 @@ export const UserTasks: React.FC = () => {
           </div>
         </div>
 
-        {/* Kanban Board / List / Calendar View */}
+        {/* Filters Bar */}
+        <div className="sticky top-0 z-20">
+          <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 md:gap-3">
+
+            {/* Search Bar */}
+            <div className="relative group w-full">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                <Search size={16} />
+              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tasks..."
+                className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 pr-4 py-2 md:py-2.5 font-medium transition-all outline-none shadow-sm"
+              />
+            </div>
+
+            {/* Filter Controls */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full p-0.5 flex-wrap">
+              {/* View Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Filter size={16} />
+                </div>
+                <select
+                  title="Filter by assignment"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as ViewFilter)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="assigned_to_me">Assigned to me</option>
+                  <option value="assigned_by_me">Assigned by me</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <ListFilter size={16} />
+                </div>
+                <select
+                  title="Filter by status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as Status | 'All')}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="All">All Statuses</option>
+                  {Object.values(Status).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Priority Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <AlertCircle size={16} />
+                </div>
+                <select
+                  title="Filter by priority"
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value as Priority | 'All')}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="All">All Priorities</option>
+                  {Object.values(Priority).map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Date Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Clock size={16} />
+                </div>
+                <select
+                  title="Filter by date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-40 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">Any Date</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="today">Due Today</option>
+                  <option value="week">Due This Week</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Project Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Layers size={16} />
+                </div>
+                <select
+                  title="Filter by project"
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">All Projects</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Company/Type Filter */}
+              <div className="relative group flex-1 sm:flex-initial">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <Building2 size={16} />
+                </div>
+                <select
+                  title="Filter by company or type"
+                  value={companyFilter}
+                  onChange={(e) => setCompanyFilter(e.target.value)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">All Companies</option>
+                  {hasPersonalTasks && (
+                    <option value="personal">Personal</option>
+                  )}
+                  {userCompanies.map(company => (
+                    <option key={company} value={company}>{company}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Sort By Dropdown */}
+              <div className="relative group w-full sm:flex-1 md:w-40">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 group-focus-within:text-brand-600">
+                  <ArrowUpDown size={16} />
+                </div>
+                <select
+                  title="Sort tasks"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="default">Default</option>
+                  <option value="dueDate">Due Date</option>
+                  <option value="priority">Priority</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+              </div>
+
+              {/* Clear All Filters Button */}
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs md:text-sm font-medium bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all shadow-sm hover:shadow-md"
+                title="Clear all filters"
+              >
+                <X size={16} />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            </div>
+          </div>
+        </div>
         {viewMode === 'board' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
             <TaskColumn
@@ -383,8 +672,8 @@ export const UserTasks: React.FC = () => {
         ) : viewMode === 'list' ? (
           // List View
           <div className="flex-1 space-y-2 md:space-y-3">
-            {myTasks.length > 0 ? (
-              myTasks.map((task, idx) => (
+            {filteredTasks.length > 0 ? (
+              filteredTasks.map((task, idx) => (
                 <div
                   key={task.id}
                   onClick={() => setSelectedTaskId(task.id)}
@@ -486,7 +775,7 @@ export const UserTasks: React.FC = () => {
         ) : (
           // Calendar View
           <CalendarView
-            tasks={myTasks}
+            tasks={filteredTasks}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
           />

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom';
 import { useApp } from '../context';
 import { Task, ViewFilter, Status, Priority } from '../types';
-import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock, Users, List, Kanban } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, ChevronDown, CheckCircle2, Circle, ListFilter, ArrowRight, Layers, LayoutGrid, ArrowUpDown, Clock, Users, List, Kanban, X } from 'lucide-react';
 import { Button } from '../components/Button';
 import { TaskPanel } from '../components/TaskPanel';
 import { BoardView } from '../components/BoardView';
@@ -294,6 +294,16 @@ export const TaskList: React.FC = () => {
     }
   };
 
+  const clearAllFilters = () => {
+    setFilter('assigned_to_me');
+    setStatusFilter('All');
+    setPriorityFilter('All');
+    setDateFilter('all');
+    setProjectFilter('all');
+    setSortBy('default');
+    setSearch('');
+  };
+
   return (
     <div className="relative min-h-full flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
 
@@ -464,6 +474,16 @@ export const TaskList: React.FC = () => {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
+
+              {/* Clear All Filters Button */}
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs md:text-sm font-medium bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all shadow-sm hover:shadow-md"
+                title="Clear all filters"
+              >
+                <X size={16} />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
             </div>
           </div>
         </div>

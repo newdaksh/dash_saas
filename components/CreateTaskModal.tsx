@@ -195,9 +195,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
 
-            {/* Task Type Selector */}
+            {/* Task Type Selector - Company or Personal */}
             <div className="flex flex-col gap-1 col-span-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Task Type</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company/Type</span>
               <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50 group relative">
                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs pointer-events-none">
                   <Briefcase size={16} />
@@ -209,7 +209,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
                     className="appearance-none w-full bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer py-1 pr-6"
                   >
                     <option value="">Personal</option>
-                    {user.company_names?.map((name, index) => (
+                    {user.company_names?.filter(name => name !== 'Individual').map((name, index) => (
                       <option key={user.company_ids?.[index]} value={user.company_ids?.[index]}>
                         {name}
                       </option>

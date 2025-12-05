@@ -422,11 +422,16 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                     aria-label="Select task type"
                   >
                     <option value="" className="bg-white text-slate-900">Personal</option>
-                    {user.company_ids.map((id, idx) => (
-                      <option key={id} value={id} className="bg-white text-slate-900">
-                        {user.company_names?.[idx] || 'Unknown Company'}
-                      </option>
-                    ))}
+                    {user.company_ids?.map((id, idx) => {
+                      const companyName = user.company_names?.[idx];
+                      // Filter out "Individual" option
+                      if (companyName === 'Individual') return null;
+                      return (
+                        <option key={id} value={id} className="bg-white text-slate-900">
+                          {companyName || 'Unknown Company'}
+                        </option>
+                      );
+                    })}
                   </select>
                   <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-600 pointer-events-none">
                     <Briefcase size={16} />
