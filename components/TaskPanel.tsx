@@ -410,7 +410,9 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                         const newCompanyName = index !== undefined && index !== -1 && user.company_names ? user.company_names[index] : null;
                         updateLocalTask({
                           company_id: newCompanyId,
-                          company_name: newCompanyName
+                          company_name: newCompanyName,
+                          project_id: undefined,
+                          project_name: undefined
                         });
                       }
                     }}
