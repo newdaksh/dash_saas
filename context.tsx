@@ -146,7 +146,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       // Fetch projects for project selection
-      const projectsPromise = projectAPI.getAll().catch(err => {
+      const projectsPromise = projectAPI.getAll({ all_companies: true }).catch(err => {
         console.error('Projects API error:', err);
         return [];
       });
@@ -824,7 +824,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setLoading(true);
       setError(null);
-      
+
       // For individual users, we use empty company or a placeholder
       // Personal tasks don't belong to any company
       const response = await authAPI.register({
@@ -832,7 +832,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         email,
         password,
         company_name: '',
-      });      setTokens(response.access_token, response.refresh_token);
+      }); setTokens(response.access_token, response.refresh_token);
 
       const userData = await authAPI.getCurrentUser();
       const userWithType = { ...userData, user_type: 'user' as UserType };

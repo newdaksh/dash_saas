@@ -142,16 +142,19 @@ export const UserTasks: React.FC = () => {
     tasks.find(t => t.id === selectedTaskId) || null
     , [tasks, selectedTaskId]);
 
-  // Get unique companies from user's tasks
+  // Get unique companies from user's profile instead of just tasks
   const userCompanies = useMemo(() => {
-    const companies = new Set<string>();
-    myTasks.forEach(t => {
-      if (t.company_name && t.company_name.trim() !== '') {
-        companies.add(t.company_name);
-      }
-    });
-    return Array.from(companies).sort();
-  }, [myTasks]);
+    if (!user || !user.company_names) return [];
+    // Filter out 'Individual' if present, as it's handled by 'Personal'
+    return user.company_names.filter(name => name !== 'Individual').sort();
+  }, [user]);
+
+  // Filter projects based on selected company
+  const filteredProjects = useMemo(() => {
+    if (companyFilter === 'all') return projects;
+    if (companyFilter === 'personal') return []; // No projects for personal tasks usually
+    return projects.filter(p => p.company_name === companyFilter);
+  }, [projects, companyFilter]);
 
   // Check if user has personal tasks (tasks without company)
   const hasPersonalTasks = useMemo(() => {
@@ -575,7 +578,7 @@ export const UserTasks: React.FC = () => {
                   className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="all">All Projects</option>
-                  {projects.map(p => (
+                  {filteredProjects.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
@@ -590,7 +593,10 @@ export const UserTasks: React.FC = () => {
                 <select
                   title="Filter by company or type"
                   value={companyFilter}
-                  onChange={(e) => setCompanyFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCompanyFilter(e.target.value);
+                    setProjectFilter('all');
+                  }}
                   className="appearance-none bg-white/50 hover:bg-white/80 border border-transparent focus:bg-white text-slate-700 text-xs md:text-sm rounded-xl focus:ring-2 focus:ring-brand-500/50 block w-full sm:w-48 pl-10 pr-10 py-2 md:py-2.5 font-medium transition-all cursor-pointer outline-none shadow-sm"
                 >
                   <option value="all">All Companies</option>
