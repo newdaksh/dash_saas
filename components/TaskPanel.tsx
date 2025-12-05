@@ -209,11 +209,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
   };
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const project_id = e.target.value || undefined;
+    const project_id = e.target.value || null;
     const project = projects.find(p => p.id === project_id);
     updateLocalTask({
       project_id,
-      project_name: project?.name
+      project_name: project?.name || null
     });
   };
 
@@ -369,7 +369,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                   >
                     <option value="" className="bg-white text-slate-700">No Project</option>
                     {projects
-                      .filter(p => !localTask.company_id || p.company_id === localTask.company_id)
+                      .filter(p => (p.company_id || '') === (localTask.company_id || ''))
                       .map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
                   </select>
                   <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
@@ -411,8 +411,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
                         updateLocalTask({
                           company_id: newCompanyId,
                           company_name: newCompanyName,
-                          project_id: undefined,
-                          project_name: undefined
+                          project_id: null,
+                          project_name: null
                         });
                       }
                     }}

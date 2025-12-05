@@ -126,8 +126,8 @@ export interface Task {
   assignee_avatar?: string;
   collaborators?: Collaborator[]; // Multiple collaborators from the same company
   creator_id: string; // The person who assigned the task
-  project_id?: string;
-  project_name?: string;
+  project_id?: string | null;
+  project_name?: string | null;
   company_id?: string;  // Company the task belongs to
   company_name?: string;  // Company name for display
   created_at?: string;
