@@ -654,6 +654,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     });
 
+    // Handle task collaborators updated (for real-time collaborator list updates)
+    const unsubTaskCollaboratorsUpdated = websocketService.on(WebSocketEventType.TASK_COLLABORATORS_UPDATED, (message: WebSocketMessage) => {
+      console.log('✓ WebSocket: Task collaborators updated', message.payload);
+      const { task_id, collaborators } = message.payload;
+
+      // Extract the collaborators array - backend nests it as collaborators.collaborators
+      const collaboratorsList = collaborators?.collaborators || collaborators || [];
+
+      // Update the task's collaborators in the state
+      setTasks(prev => prev.map(task =>
+        task.id === task_id
+          ? { ...task, collaborators: collaboratorsList }
+          : task
+      ));
+
+      console.log('✓ Task collaborators updated in state for task:', task_id);
+    });
+
     console.log('✓ WebSocket listeners initialized, including CHATBOT_DB_CHANGE');
     console.log('✓ Registered event types:', Object.keys(WebSocketEventType));
 
@@ -674,6 +692,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubConnected();
       unsubPong();
       unsubChatbotDbChange();
+      unsubTaskCollaboratorsUpdated();
       unsubAll();
     };
   }, [user?.id]); // scheduleRealtimeRefresh is stable now (empty deps), so no need to include it
@@ -831,7 +850,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name,
         email,
         password,
-        company_name: '',
+        company_name: `Personal - ${name}`,
       }); setTokens(response.access_token, response.refresh_token);
 
       const userData = await authAPI.getCurrentUser();
@@ -1133,7 +1152,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         owner_id: project.owner_id || user.id,
         client_name: project.client_name || '',
       });
-      setProjects(prev => [newProject, ...prev]);
+      // Note: We don't add the project to state here because the WebSocket
+      // PROJECT_CREATED event will handle it, preventing duplicate entries
+      console.log('Project created:', newProject.id);
     } catch (err: any) {
       console.error('Failed to add project:', err);
       setError(err.response?.data?.detail || 'Failed to add project');

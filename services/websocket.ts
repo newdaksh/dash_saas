@@ -14,36 +14,37 @@ export const WebSocketEventType = {
   TASK_DELETED: 'TASK_DELETED',
   TASK_ASSIGNED: 'TASK_ASSIGNED',
   TASK_STATUS_CHANGED: 'TASK_STATUS_CHANGED',
-  
+
   // Project events
   PROJECT_CREATED: 'PROJECT_CREATED',
   PROJECT_UPDATED: 'PROJECT_UPDATED',
   PROJECT_DELETED: 'PROJECT_DELETED',
   PROJECT_MEMBER_ADDED: 'PROJECT_MEMBER_ADDED',
-  
+
   // User events
   USER_INVITED: 'USER_INVITED',
   USER_JOINED: 'USER_JOINED',
   USER_UPDATED: 'USER_UPDATED',
   USER_PROFILE_UPDATED: 'USER_PROFILE_UPDATED',
-  
+
   // Invitation events
   INVITATION_RECEIVED: 'INVITATION_RECEIVED',
   INVITATION_RESPONSE: 'INVITATION_RESPONSE',
-  
+
   // Comment events
   COMMENT_ADDED: 'COMMENT_ADDED',
   COMMENT_DELETED: 'COMMENT_DELETED',
-  
+
   // Task History events
   TASK_HISTORY_UPDATED: 'TASK_HISTORY_UPDATED',
-  
+  TASK_COLLABORATORS_UPDATED: 'TASK_COLLABORATORS_UPDATED',
+
   // Notification events
   NOTIFICATION: 'NOTIFICATION',
-  
+
   // Chatbot events
   CHATBOT_DB_CHANGE: 'CHATBOT_DB_CHANGE',
-  
+
   // System events
   CONNECTION_ESTABLISHED: 'CONNECTION_ESTABLISHED',
   PING: 'PING',
@@ -76,7 +77,7 @@ class WebSocketService {
    */
   connect(): void {
     const token = getAccessToken();
-    
+
     if (!token) {
       console.warn('WebSocket: No access token available, skipping connection');
       return;
@@ -93,7 +94,7 @@ class WebSocketService {
     try {
       const wsUrl = API_ENDPOINTS.WEBSOCKET.CONNECT(token);
       console.log('WebSocket: Connecting to', wsUrl.replace(token, '***'));
-      
+
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = this.handleOpen.bind(this);
@@ -112,12 +113,12 @@ class WebSocketService {
   disconnect(): void {
     this.shouldReconnect = false;
     this.stopHeartbeat();
-    
+
     if (this.ws) {
       this.ws.close(1000, 'Client disconnecting');
       this.ws = null;
     }
-    
+
     this.reconnectAttempts = 0;
     this.isConnecting = false;
     console.log('WebSocket: Disconnected');
@@ -231,7 +232,7 @@ class WebSocketService {
     if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`WebSocket: Reconnecting in ${this.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
+
       setTimeout(() => {
         this.connect();
       }, this.reconnectInterval);

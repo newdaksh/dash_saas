@@ -43,8 +43,13 @@ export const UserTasks: React.FC = () => {
     if (!user) return [];
     if (filter === 'assigned_to_me') {
       return tasks.filter(t => t.assignee_id === user.id);
-    } else {
+    } else if (filter === 'assigned_by_me') {
       return tasks.filter(t => t.creator_id === user.id);
+    } else {
+      // collaborating_on
+      return tasks.filter(t =>
+        t.collaborators?.some(c => c.user_id === user.id)
+      );
     }
   }, [tasks, user, filter]);
 
@@ -170,6 +175,12 @@ export const UserTasks: React.FC = () => {
   // Check if user has tasks from multiple companies
   const uniqueCompanies = new Set(myTasks.map(t => t.company_name).filter(Boolean));
   const hasMultipleCompanies = uniqueCompanies.size > 1;
+
+  // Check if current user is a collaborator on the selected task
+  const isCollaborator = useMemo(() => {
+    if (!selectedTask || !user) return false;
+    return selectedTask.collaborators?.some(c => c.user_id === user.id) || false;
+  }, [selectedTask, user]);
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     const task = myTasks.find(t => t.id === taskId);
@@ -505,6 +516,7 @@ export const UserTasks: React.FC = () => {
                 >
                   <option value="assigned_to_me">Assigned to me</option>
                   <option value="assigned_by_me">Assigned by me</option>
+                  <option value="collaborating_on">Collaborating</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
@@ -795,6 +807,7 @@ export const UserTasks: React.FC = () => {
         isOpen={!!selectedTask}
         onClose={() => setSelectedTaskId(null)}
         viewOnly={selectedTask?.creator_id !== user?.id}
+        readOnly={isCollaborator}
       />
 
       {/* Create Task Modal */}
