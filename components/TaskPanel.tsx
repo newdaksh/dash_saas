@@ -347,512 +347,515 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
             </div>
           )}
 
-        </div>
-
-
-        {/* Read-Only Mode Banner */}
-        {readOnly && (
-          <div className="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-2 text-slate-700 text-sm">
-            <Eye size={16} />
-            <span>View-only mode. You are a collaborator on this task.</span>
-          </div>
-        )}
-
-        {/* View-Only Mode Banner (only show if not readOnly to avoid double banners) */}
-        {viewOnly && !readOnly && (
-          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-blue-700 text-sm">
-            <AlertCircle size={16} />
-            <span>View-only mode. You can only change the task status.</span>
-          </div>
-        )}
-
-        {/* Project Breadcrumb / Selector - Only show for company tasks */}
-        {localTask.company_id && (
-          <div className="mb-4 flex items-center gap-2 group">
-            <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
-            {viewOnly || readOnly ? (
-              <span className="text-sm text-brand-600 font-medium pl-1">
-                {localTask.project_name || 'No Project'}
-              </span>
-            ) : (
-              <div className="relative">
-                <select
-                  value={localTask.project_id || ''}
-                  onChange={handleProjectChange}
-                  className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
-                  aria-label="Select project"
-                >
-                  <option value="" className="bg-white text-slate-700">No Project</option>
-                  {projects
-                    .filter(p => (p.company_id || '') === (localTask.company_id || ''))
-                    .map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
-                </select>
-                <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Title Input - read-only in view mode */}
-        {viewOnly || readOnly ? (
-          <h2 className="text-3xl font-bold text-gray-900 mb-6 leading-tight">
-            {localTask.title}
-          </h2>
-        ) : (
-          <input
-            type="text"
-            value={localTask.title}
-            onChange={(e) => updateLocalTask({ title: e.target.value })}
-            className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
-            placeholder="Task Title"
-          />
-        )}
-
-        {/* Metadata Grid */}
-        <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
-
-          {/* Task Type - shows the company for this task */}
-          <div className="flex flex-col gap-1 col-span-2">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
-            {!viewOnly && !readOnly && user.company_ids && user.company_ids.length > 0 ? (
-              <div className="relative">
-                <select
-                  value={localTask.company_id || ''}
-                  onChange={(e) => {
-                    const newCompanyId = e.target.value;
-                    if (newCompanyId) {
-                      const index = user.company_ids?.indexOf(newCompanyId);
-                      const newCompanyName = index !== undefined && index !== -1 && user.company_names ? user.company_names[index] : null;
-                      updateLocalTask({
-                        company_id: newCompanyId,
-                        company_name: newCompanyName,
-                        project_id: null,
-                        project_name: null
-                      });
-                    }
-                  }}
-                  className="appearance-none w-full bg-purple-50 border border-transparent hover:border-purple-200 text-purple-700 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block px-3 py-1.5 font-medium transition-colors cursor-pointer pl-9"
-                  aria-label="Select company"
-                >
-                  {user.company_ids?.map((id, idx) => {
-                    const companyName = user.company_names?.[idx];
-                    // Filter out "Individual" option
-                    if (companyName === 'Individual') return null;
-                    return (
-                      <option key={id} value={id} className="bg-white text-slate-900">
-                        {companyName || 'Unknown Company'}
-                      </option>
-                    );
-                  })}
-                </select>
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-600 pointer-events-none">
-                  <Briefcase size={16} />
-                </div>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
-                  <Briefcase size={16} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-purple-700">{localTask.company_name || 'No Company'}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Assignee - read-only in view mode */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
-            <div className="relative group">
-              <div className={`flex items-center gap-2 p-1 -ml-1 rounded-md transition-colors ${!viewOnly && !readOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
-                <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
-                  {localTask.assignee_avatar ? (
-                    <img src={localTask.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    (localTask.assignee_name || '').charAt(0)
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    {localTask.assignee_name}
-                    {!viewOnly && !readOnly && <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />}
-                  </span>
-                </div>
-              </div>
-              {/* Invisible select overlay for interaction - disabled in view mode */}
-              {!viewOnly && !readOnly && (
-                <select
-                  value={localTask.assignee_id}
-                  onChange={handleAssigneeChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
-                  aria-label="Select assignee"
-                >
-                  <optgroup label="Team Members" className="bg-white text-slate-900">
-                    {users.map(u => (
-                      <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
-                    ))}
-                  </optgroup>
-                </select>
-              )}
-            </div>
-          </div>
-
-          {/* Collaborators Section - Only show for company tasks */}
-          {localTask.company_id && (
-            <div className="flex flex-col gap-1 col-span-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <Users size={12} />
-                Collaborators
-                {(localTask.collaborators?.length || 0) > 0 && (
-                  <span className="text-xs bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">
-                    {localTask.collaborators?.length}
-                  </span>
-                )}
-              </span>
-
-              {viewOnly || readOnly ? (
-                // View-only mode: just show collaborator names
-                <div className="flex flex-wrap gap-2 p-1 -ml-1">
-                  {(localTask.collaborators?.length || 0) === 0 ? (
-                    <span className="text-sm text-slate-400 italic">No collaborators</span>
-                  ) : (
-                    localTask.collaborators?.map(collab => (
-                      <div key={collab.user_id} className="flex items-center gap-2 bg-slate-50 rounded-full px-2 py-1">
-                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">
-                          {collab.user_avatar ? (
-                            <img src={collab.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            collab.user_name.charAt(0)
-                          )}
-                        </div>
-                        <span className="text-sm text-slate-600">{collab.user_name}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              ) : (
-                // Edit mode: show checkboxes to add/remove collaborators
-                <div className="border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-slate-50/50">
-                  {users.filter(u => u.id !== localTask.assignee_id).length === 0 ? (
-                    <span className="text-sm text-slate-400 italic p-1">No other team members available</span>
-                  ) : (
-                    users.filter(u => u.id !== localTask.assignee_id).map(potentialCollab => {
-                      const isSelected = localTask.collaborators?.some(c => c.user_id === potentialCollab.id) || false;
-                      return (
-                        <label
-                          key={potentialCollab.id}
-                          className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
-                            }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              const currentCollabs = localTask.collaborators || [];
-                              if (isSelected) {
-                                // Remove collaborator
-                                updateLocalTask({
-                                  collaborators: currentCollabs.filter(c => c.user_id !== potentialCollab.id)
-                                });
-                              } else {
-                                // Add collaborator
-                                updateLocalTask({
-                                  collaborators: [...currentCollabs, {
-                                    user_id: potentialCollab.id,
-                                    user_name: potentialCollab.name,
-                                    user_avatar: potentialCollab.avatar_url
-                                  }]
-                                });
-                              }
-                            }}
-                            className="w-3.5 h-3.5 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
-                          />
-                          <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] shrink-0">
-                            {potentialCollab.avatar_url ? (
-                              <img src={potentialCollab.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                              potentialCollab.name.charAt(0)
-                            )}
-                          </div>
-                          <span className="text-sm text-slate-600 truncate">{potentialCollab.name}</span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              )}
+          {/* Read-Only Mode Banner */}
+          {readOnly && (
+            <div className="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-2 text-slate-700 text-sm">
+              <Eye size={16} />
+              <span>View-only mode. You are a collaborator on this task.</span>
             </div>
           )}
 
-          {/* Due Date Input - read-only in view mode */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
-            <div className={`flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group rounded transition-colors relative ${!viewOnly && !readOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${!localTask.due_date ? 'bg-gray-100 text-gray-400' :
-                isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
-                }`}>
-                <Calendar size={16} />
-              </div>
-              {/* Native date picker with styling - read-only in view mode */}
-              {viewOnly || readOnly ? (
-                <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}>
-                  {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : 'No due date'}
-                </span>
-              ) : (
-                <input
-                  type="date"
-                  value={dateInputValue}
-                  onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
-                  className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
-                  title="Select due date"
-                  placeholder="Select due date"
-                />
-              )}
+          {/* View-Only Mode Banner (only show if not readOnly to avoid double banners) */}
+          {viewOnly && !readOnly && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-blue-700 text-sm">
+              <AlertCircle size={16} />
+              <span>View-only mode. You can only change the task status.</span>
             </div>
-          </div>
+          )}
 
-          {/* Priority Selector - read-only in view mode */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Priority</span>
-            <div className="flex items-center gap-2 p-1 -ml-1">
+          {/* Project Breadcrumb / Selector - Only show for company tasks */}
+          {(localTask.company_id || localTask.company_name || (user.company_ids && user.company_ids.length > 0)) && (
+            <div className="mb-4 flex items-center gap-2 group">
+              <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-500">Project</span>
               {viewOnly || readOnly ? (
-                <span className={`pl-3 pr-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
-                  localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                    'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
-                  {localTask.priority}
+                <span className="text-sm text-brand-600 font-medium pl-1">
+                  {localTask.project_name || 'No Project'}
                 </span>
               ) : (
                 <div className="relative">
                   <select
-                    value={localTask.priority}
-                    onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
-                    className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
-                      localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
-                        'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                      }`}
-                    aria-label="Select priority"
+                    value={localTask.project_id || ''}
+                    onChange={handleProjectChange}
+                    className="appearance-none bg-transparent text-sm text-brand-600 font-medium hover:text-brand-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 rounded pl-1 pr-6 py-0.5 transition-colors"
+                    aria-label="Select project"
                   >
-                    {Object.values(Priority).map(p => (
-                      <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
-                    ))}
+                    <option value="" className="bg-white text-slate-700">No Project</option>
+                    {projects
+                      .filter(p => {
+                        if (localTask.company_id && p.company_id) {
+                          return p.company_id === localTask.company_id;
+                        }
+                        // Fallback to name matching if ID is missing (e.g. for some Admin views)
+                        return (p.company_name || '') === (localTask.company_name || '');
+                      })
+                      .map(p => <option key={p.id} value={p.id} className="bg-white text-slate-700">{p.name}</option>)}
                   </select>
-                  <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${localTask.priority === Priority.HIGH ? 'text-red-700' :
-                    localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
-                      'text-blue-700'
-                    }`} />
+                  <ChevronDown size={12} className="absolute right-1 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none" />
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Status Selector - always enabled (users can change status) */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Status</span>
-            <div className="flex items-center gap-2 p-1 -ml-1">
-              <div className="relative w-full">
-                <select
-                  value={localTask.status}
-                  onChange={(e) => handleStatusDropdownChange(e.target.value as Status)}
-                  disabled={readOnly}
-                  className={`appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors ${readOnly ? 'opacity-70 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
-                  aria-label="Select status"
-                >
-                  {Object.values(Status).map(s => (
-                    <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-
-          {/* Dynamic Project Details Fields */}
-          {currentProject && (
-            <>
-              {/* Client Name */}
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</span>
-                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
-                  <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-xs">
-                    <Building2 size={16} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-700">{currentProject.client_name}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Project Owner */}
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Project Owner</span>
-                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
-                  <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-xs">
-                    <Crown size={16} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-700">{currentProject.owner_name}</span>
-                  </div>
-                </div>
-              </div>
-            </>
           )}
 
-        </div>
-
-        {/* Description Textarea - read-only in view mode */}
-        <div className="mb-8 relative">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
+          {/* Title Input - read-only in view mode */}
           {viewOnly || readOnly ? (
-            <div className="w-full text-gray-700 text-base leading-relaxed bg-gray-50 border border-slate-200 rounded-md p-3 min-h-[150px]">
-              {localTask.description || <span className="text-gray-400 italic">No description provided</span>}
-            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 leading-tight">
+              {localTask.title}
+            </h2>
           ) : (
-            <textarea
-              value={localTask.description}
-              onChange={(e) => updateLocalTask({ description: e.target.value })}
-              className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
-              rows={6}
-              placeholder="Add a description..."
+            <input
+              type="text"
+              value={localTask.title}
+              onChange={(e) => updateLocalTask({ title: e.target.value })}
+              className="text-3xl font-bold text-gray-900 mb-6 leading-tight w-full bg-transparent border-none p-0 focus:ring-0 focus:outline-none placeholder-gray-300 transition-colors hover:bg-gray-50/50 rounded"
+              placeholder="Task Title"
             />
           )}
-        </div>
 
-        <div className="h-px bg-gray-200 w-full mb-8"></div>
+          {/* Metadata Grid */}
+          <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
 
-        {/* Activity / Comments */}
-        <div className="mb-4">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <MessageSquare size={18} />
-            Activity
-          </h3>
-
-          <div className="space-y-6">
-            {comments.length === 0 && (
-              <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
-                No activity yet. Be the first to comment!
-              </div>
-            )}
-            {comments.map(comment => (
-              <div key={comment.id} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs">
-                  {comment.user_name.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-medium text-sm text-gray-900">{comment.user_name}</span>
-                    <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+            {/* Task Type - shows the company for this task */}
+            <div className="flex flex-col gap-1 col-span-2">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</span>
+              {!viewOnly && !readOnly && user.company_ids && user.company_ids.length > 0 ? (
+                <div className="relative">
+                  <select
+                    value={localTask.company_id || ''}
+                    onChange={(e) => {
+                      const newCompanyId = e.target.value;
+                      if (newCompanyId) {
+                        const index = user.company_ids?.indexOf(newCompanyId);
+                        const newCompanyName = index !== undefined && index !== -1 && user.company_names ? user.company_names[index] : null;
+                        updateLocalTask({
+                          company_id: newCompanyId,
+                          company_name: newCompanyName,
+                          project_id: null,
+                          project_name: null
+                        });
+                      }
+                    }}
+                    className="appearance-none w-full bg-purple-50 border border-transparent hover:border-purple-200 text-purple-700 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block px-3 py-1.5 font-medium transition-colors cursor-pointer pl-9"
+                    aria-label="Select company"
+                  >
+                    {user.company_ids?.map((id, idx) => {
+                      const companyName = user.company_names?.[idx];
+                      // Filter out "Individual" option
+                      if (companyName === 'Individual') return null;
+                      return (
+                        <option key={id} value={id} className="bg-white text-slate-900">
+                          {companyName || 'Unknown Company'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-600 pointer-events-none">
+                    <Briefcase size={16} />
                   </div>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg rounded-tl-none">
-                    {comment.content}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-px bg-gray-200 w-full mb-8"></div>
-
-        {/* Task History Section */}
-        <div className="mb-4">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-full flex items-center justify-between font-semibold text-gray-900 mb-4 hover:text-brand-600 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <History size={18} />
-              <span>History</span>
-              <span className="text-xs text-gray-400 font-normal">(All changes with IST timestamps)</span>
-            </div>
-            <ChevronDown
-              size={18}
-              className={`transition-transform duration-200 ${showHistory ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {showHistory && (
-            <div className="space-y-4 animate-fade-in">
-              {historyLoading ? (
-                <div className="text-center py-8 bg-slate-50 rounded-lg">
-                  <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-                  <span className="text-slate-500 text-sm">Loading history...</span>
-                </div>
-              ) : history.length === 0 ? (
-                <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
-                  No history recorded yet.
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" />
                 </div>
               ) : (
-                <div className="relative">
-                  {/* Timeline line */}
-                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
+                <div className="flex items-center gap-2 p-1 -ml-1 rounded-md bg-purple-50">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
+                    <Briefcase size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-purple-700">{localTask.company_name || 'No Company'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                  <div className="space-y-4">
-                    {history.map((entry, index) => {
-                      const { icon, color, label } = getHistoryActionDetails(entry.action);
-                      return (
-                        <div key={entry.id} className="relative flex gap-4 pl-1">
-                          {/* Timeline dot */}
-                          <div className={`z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${color}`}>
-                            {icon}
+            {/* Assignee - read-only in view mode */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assignee</span>
+              <div className="relative group">
+                <div className={`flex items-center gap-2 p-1 -ml-1 rounded-md transition-colors ${!viewOnly && !readOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
+                  <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xs border border-white ring-2 ring-gray-50">
+                    {localTask.assignee_avatar ? (
+                      <img src={localTask.assignee_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      (localTask.assignee_name || '').charAt(0)
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      {localTask.assignee_name}
+                      {!viewOnly && !readOnly && <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-600" />}
+                    </span>
+                  </div>
+                </div>
+                {/* Invisible select overlay for interaction - disabled in view mode */}
+                {!viewOnly && !readOnly && (
+                  <select
+                    value={localTask.assignee_id}
+                    onChange={handleAssigneeChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full bg-white text-slate-900"
+                    aria-label="Select assignee"
+                  >
+                    <optgroup label="Team Members" className="bg-white text-slate-900">
+                      {users.map(u => (
+                        <option key={u.id} value={u.id} className="bg-white text-slate-900">{u.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {/* Collaborators Section - Only show for company tasks */}
+            {(localTask.company_id || localTask.company_name || (user.company_ids && user.company_ids.length > 0)) && (
+              <div className="flex flex-col gap-1 col-span-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <Users size={12} />
+                  Collaborators
+                  {(localTask.collaborators?.length || 0) > 0 && (
+                    <span className="text-xs bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">
+                      {localTask.collaborators?.length}
+                    </span>
+                  )}
+                </span>
+
+                {viewOnly || readOnly ? (
+                  // View-only mode: just show collaborator names
+                  <div className="flex flex-wrap gap-2 p-1 -ml-1">
+                    {(localTask.collaborators?.length || 0) === 0 ? (
+                      <span className="text-sm text-slate-400 italic">No collaborators</span>
+                    ) : (
+                      localTask.collaborators?.map(collab => (
+                        <div key={collab.user_id} className="flex items-center gap-2 bg-slate-50 rounded-full px-2 py-1">
+                          <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">
+                            {collab.user_avatar ? (
+                              <img src={collab.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              collab.user_name.charAt(0)
+                            )}
                           </div>
+                          <span className="text-sm text-slate-600">{collab.user_name}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  // Edit mode: show checkboxes to add/remove collaborators
+                  <div className="border border-slate-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-slate-50/50">
+                    {users.filter(u => u.id !== localTask.assignee_id).length === 0 ? (
+                      <span className="text-sm text-slate-400 italic p-1">No other team members available</span>
+                    ) : (
+                      users.filter(u => u.id !== localTask.assignee_id).map(potentialCollab => {
+                        const isSelected = localTask.collaborators?.some(c => c.user_id === potentialCollab.id) || false;
+                        return (
+                          <label
+                            key={potentialCollab.id}
+                            className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-teal-50 border border-teal-200' : 'hover:bg-white border border-transparent'
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                const currentCollabs = localTask.collaborators || [];
+                                if (isSelected) {
+                                  // Remove collaborator
+                                  updateLocalTask({
+                                    collaborators: currentCollabs.filter(c => c.user_id !== potentialCollab.id)
+                                  });
+                                } else {
+                                  // Add collaborator
+                                  updateLocalTask({
+                                    collaborators: [...currentCollabs, {
+                                      user_id: potentialCollab.id,
+                                      user_name: potentialCollab.name,
+                                      user_avatar: potentialCollab.avatar_url
+                                    }]
+                                  });
+                                }
+                              }}
+                              className="w-3.5 h-3.5 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                            />
+                            <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-[10px] shrink-0">
+                              {potentialCollab.avatar_url ? (
+                                <img src={potentialCollab.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                              ) : (
+                                potentialCollab.name.charAt(0)
+                              )}
+                            </div>
+                            <span className="text-sm text-slate-600 truncate">{potentialCollab.name}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-                          {/* Content */}
-                          <div className="flex-1 pb-4">
-                            <div className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
-                              {/* Header */}
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-[10px]">
-                                    {entry.user_avatar ? (
-                                      <img src={entry.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                                    ) : (
-                                      entry.user_name.charAt(0)
-                                    )}
-                                  </div>
-                                  <span className="text-sm font-medium text-gray-900">{entry.user_name}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-xs text-gray-400">
-                                  <Clock size={12} />
-                                  <span>{entry.created_at_ist}</span>
-                                </div>
-                              </div>
+            {/* Due Date Input - read-only in view mode */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</span>
+              <div className={`flex items-center gap-2 p-1 -ml-1 text-sm text-gray-700 group rounded transition-colors relative ${!viewOnly && !readOnly ? 'hover:bg-slate-50 cursor-pointer' : ''}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center pointer-events-none ${!localTask.due_date ? 'bg-gray-100 text-gray-400' :
+                  isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-brand-600'
+                  }`}>
+                  <Calendar size={16} />
+                </div>
+                {/* Native date picker with styling - read-only in view mode */}
+                {viewOnly || readOnly ? (
+                  <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}>
+                    {localTask.due_date ? new Date(localTask.due_date).toLocaleDateString() : 'No due date'}
+                  </span>
+                ) : (
+                  <input
+                    type="date"
+                    value={dateInputValue}
+                    onChange={(e) => updateLocalTask({ due_date: e.target.value || null })}
+                    className={`bg-transparent border-none p-0 focus:ring-0 text-sm font-medium cursor-pointer w-full ${isOverdue ? 'text-red-600' : 'text-slate-700'}`}
+                    title="Select due date"
+                    placeholder="Select due date"
+                  />
+                )}
+              </div>
+            </div>
 
-                              {/* Action description */}
-                              <div className="text-sm text-gray-600">
-                                {entry.action === 'created' ? (
-                                  <span>Created this task: <span className="font-medium text-gray-900">"{entry.new_value}"</span></span>
-                                ) : (
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    <span>{label}:</span>
-                                    {entry.old_value && (
-                                      <>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium line-through">
-                                          {String(entry.old_value)}
-                                        </span>
-                                        <ArrowRight size={12} className="text-gray-400" />
-                                      </>
-                                    )}
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium">
-                                      {String(entry.new_value)}
-                                    </span>
+            {/* Priority Selector - read-only in view mode */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Priority</span>
+              <div className="flex items-center gap-2 p-1 -ml-1">
+                {viewOnly || readOnly ? (
+                  <span className={`pl-3 pr-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200' :
+                    localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                      'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                    {localTask.priority}
+                  </span>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={localTask.priority}
+                      onChange={(e) => updateLocalTask({ priority: e.target.value as Priority })}
+                      className={`appearance-none pl-3 pr-8 py-1 rounded-full text-xs font-bold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors uppercase tracking-wide ${localTask.priority === Priority.HIGH ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                        localTask.priority === Priority.MEDIUM ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' :
+                          'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                        }`}
+                      aria-label="Select priority"
+                    >
+                      {Object.values(Priority).map(p => (
+                        <option key={p} value={p} className="bg-white text-slate-900">{p}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${localTask.priority === Priority.HIGH ? 'text-red-700' :
+                      localTask.priority === Priority.MEDIUM ? 'text-yellow-700' :
+                        'text-blue-700'
+                      }`} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Status Selector - always enabled (users can change status) */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Status</span>
+              <div className="flex items-center gap-2 p-1 -ml-1">
+                <div className="relative w-full">
+                  <select
+                    value={localTask.status}
+                    onChange={(e) => handleStatusDropdownChange(e.target.value as Status)}
+                    disabled={readOnly}
+                    className={`appearance-none w-full bg-white border border-slate-200 text-gray-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors ${readOnly ? 'opacity-70 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
+                    aria-label="Select status"
+                  >
+                    {Object.values(Status).map(s => (
+                      <option key={s} value={s} className="bg-white text-slate-900">{s}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Project Details Fields */}
+            {currentProject && (
+              <>
+                {/* Client Name */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</span>
+                  <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-xs">
+                      <Building2 size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-700">{currentProject.client_name}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project Owner */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Project Owner</span>
+                  <div className="flex items-center gap-2 p-1 -ml-1 rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-xs">
+                      <Crown size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-700">{currentProject.owner_name}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+          </div>
+
+          {/* Description Textarea - read-only in view mode */}
+          <div className="mb-8 relative">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Description</span>
+            {viewOnly || readOnly ? (
+              <div className="w-full text-gray-700 text-base leading-relaxed bg-gray-50 border border-slate-200 rounded-md p-3 min-h-[150px]">
+                {localTask.description || <span className="text-gray-400 italic">No description provided</span>}
+              </div>
+            ) : (
+              <textarea
+                value={localTask.description}
+                onChange={(e) => updateLocalTask({ description: e.target.value })}
+                className="w-full text-gray-700 text-base leading-relaxed bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-md p-3 shadow-sm transition-all resize-none placeholder-gray-400"
+                rows={6}
+                placeholder="Add a description..."
+              />
+            )}
+          </div>
+
+          <div className="h-px bg-gray-200 w-full mb-8"></div>
+
+          {/* Activity / Comments */}
+          <div className="mb-4">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MessageSquare size={18} />
+              Activity
+            </h3>
+
+            <div className="space-y-6">
+              {comments.length === 0 && (
+                <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
+                  No activity yet. Be the first to comment!
+                </div>
+              )}
+              {comments.map(comment => (
+                <div key={comment.id} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                    {comment.user_name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="font-medium text-sm text-gray-900">{comment.user_name}</span>
+                      <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg rounded-tl-none">
+                      {comment.content}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-px bg-gray-200 w-full mb-8"></div>
+
+          {/* Task History Section */}
+          <div className="mb-4">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full flex items-center justify-between font-semibold text-gray-900 mb-4 hover:text-brand-600 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <History size={18} />
+                <span>History</span>
+                <span className="text-xs text-gray-400 font-normal">(All changes with IST timestamps)</span>
+              </div>
+              <ChevronDown
+                size={18}
+                className={`transition-transform duration-200 ${showHistory ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {showHistory && (
+              <div className="space-y-4 animate-fade-in">
+                {historyLoading ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-lg">
+                    <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <span className="text-slate-500 text-sm">Loading history...</span>
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-center py-6 bg-slate-50 rounded-lg text-slate-400 text-sm">
+                    No history recorded yet.
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {/* Timeline line */}
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
+
+                    <div className="space-y-4">
+                      {history.map((entry, index) => {
+                        const { icon, color, label } = getHistoryActionDetails(entry.action);
+                        return (
+                          <div key={entry.id} className="relative flex gap-4 pl-1">
+                            {/* Timeline dot */}
+                            <div className={`z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+                              {icon}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 pb-4">
+                              <div className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-[10px]">
+                                      {entry.user_avatar ? (
+                                        <img src={entry.user_avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                                      ) : (
+                                        entry.user_name.charAt(0)
+                                      )}
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">{entry.user_name}</span>
                                   </div>
-                                )}
+                                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                                    <Clock size={12} />
+                                    <span>{entry.created_at_ist}</span>
+                                  </div>
+                                </div>
+
+                                {/* Action description */}
+                                <div className="text-sm text-gray-600">
+                                  {entry.action === 'created' ? (
+                                    <span>Created this task: <span className="font-medium text-gray-900">"{entry.new_value}"</span></span>
+                                  ) : (
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      <span>{label}:</span>
+                                      {entry.old_value && (
+                                        <>
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium line-through">
+                                            {String(entry.old_value)}
+                                          </span>
+                                          <ArrowRight size={12} className="text-gray-400" />
+                                        </>
+                                      )}
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium">
+                                        {String(entry.new_value)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
-
 
         {/* Comment Input (Sticky Bottom) */}
         <div className="p-4 bg-gray-50 border-t border-gray-200">
@@ -879,7 +882,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({ task, isOpen, onClose, vie
             </div>
           </div>
         </div>
-      </div >
+      </div>
     </>
   );
 };

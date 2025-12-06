@@ -150,7 +150,7 @@ export interface Project {
   updated_at?: string;
 }
 
-export type ViewFilter = 'assigned_to_me' | 'assigned_by_me' | 'collaborating_on';
+export type ViewFilter = 'all_tasks' | 'assigned_to_me' | 'assigned_by_me' | 'collaborating_on';
 
 // Helper function to convert dates
 export const parseDate = (dateStr: string | null): Date | null => {
